@@ -714,7 +714,7 @@ sub get_mincs {
     my @files_list;
     foreach my $file (@files) {
         next unless $file =~ /\.mnc(\.gz)?$/;
-        my $cmd= "Mincinfo -quiet -tab -file -date $this->{TmpDir}/$file";
+        my $cmd= "Mincinfo_wrapper -quiet -tab -file -date $this->{TmpDir}/$file";
         push @files_list, `$cmd`;
     }
     open SORTER, "|sort -nk2 | cut -f1 > $this->{TmpDir}/sortlist";
@@ -1048,11 +1048,13 @@ sub validateCandidate {
     $query = "SELECT Visit_label FROM Visit_Windows WHERE BINARY Visit_label=?";
     $sth =  ${$this->{'dbhr'}}->prepare($query);
     $sth->execute($subjectIDsref->{'visitLabel'});
-    if ($sth->rows == 0) {
+    if (($sth->rows == 0) && ($subjectIDsref->{'createVisitLabel'} eq "no")) {
         print LOG  "\n\n => No Visit label";
         $CandMismatchError= 'Visit label does not exist';
         return $CandMismatchError;
-    } 
+    } elsif (($sth->rows == 0) && ($subjectIDsref->{'createVisitLabel'} eq "yes")) {
+        print LOG  "\n\n => Will create visit label $subjectIDsref->{'visitLabel'}";
+    }
 
    return $CandMismatchError;
 }
