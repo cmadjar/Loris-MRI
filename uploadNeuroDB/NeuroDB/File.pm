@@ -251,21 +251,21 @@ sub loadFileFromDisk {
     my ($user) = getpwuid($UID);
     $this->setFileData('InsertedByUserID', $user);
     $this->setFileData('File', $file);
-    
-    if($file =~ /\.mnc(\.gz)?$/) {
-        $fileType = 'mnc';
-    } elsif($file =~ /\.obj$/) {
-        $fileType = 'obj';
-    } elsif($file =~ /\.xfm$/) {
-        $fileType = 'xfm';
-    } elsif($file =~ /\.imp$/) {
-        $fileType = 'imp';
-    } elsif($file =~ /\.xml$/) {
-        $fileType = 'xml';
-    } elsif($file =~ /\.txt$/) {
-        $fileType = 'txt';
-    } elsif($file =~ /\.nrrd$/) {
-        $fileType = 'nrrd';
+
+    # grep possible file types from the database
+    (my $query = <<QUERY) =~ s/\n/ /gm;
+    SELECT type
+    FROM   ImagingFileTypes
+QUERY
+    my $sth = ${$this->{'dbhr'}}->prepare($query);
+    $sth->execute();
+
+    # else, loop through the different values from ImagingFileTypes table
+    # and see if $file matches one of the file types.
+    while (my $fileTypeRow = $sth->fetchrow_hashref()) {
+        if ($file =~ /\.$fileTypeRow->{'type'}(\.gz)?$/) {
+            $fileType = $fileTypeRow->{'type'};
+        }
     }
     $this->setFileData('FileType', $fileType) if defined $fileType;
     
