@@ -753,7 +753,7 @@ sub registerScanIntoDB {
             $tarchive_path
         );
         $${minc_file}->setParameter(
-            'tarchiveMD5', 
+            'tarchiveMD5',
             $tarchiveInfo->{'md5sumArchive'}
         );
 
@@ -769,9 +769,15 @@ sub registerScanIntoDB {
         ########################################################
         ### update mri_acquisition_dates table #################
         ########################################################
+        my $acquisition_date = undef;
+        if ($tarchiveInfo->{'DateAcquired'}) {
+            $acquisition_date = $tarchiveInfo->{'DateAcquired'};
+        } elsif ($${minc_file}->getParameter('AcquisitionDate')) {
+            $acquisition_date = $${minc_file}->getParameter('AcquisitionDate');
+        }
         $this->update_mri_acquisition_dates(
-            $sessionID, 
-            $tarchiveInfo->{'DateAcquired'}
+            $sessionID,
+            $acquisition_date
         );
     }
     return $acquisitionProtocolID;
