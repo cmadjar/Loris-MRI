@@ -406,6 +406,16 @@ INPUTS:
 
 RETURNS: the `CandID` or 0 if the `PSCID` does not exist
 
+### deleteFiles(@files)
+
+Deletes a set of files from the file system. A warning will be issued for every file
+that could not be deleted.
+
+INPUTS:
+
+    - @files: list of files to delete.
+    
+
 # TO DO
 
 Fix comments written as #fixme in the code.
