@@ -415,6 +415,18 @@ INPUTS:
 
     - @files: list of files to delete.
     
+### isDicomImage(@files\_list)
+
+This method checks whether the files given as an argument are DICOM images or not.
+It will return a hash with the file path as keys and true or false as values (the
+value will be set to true if the file is a DICOM image, otherwise it will be set to
+false).
+
+INPUT: array with full path to the DICOM files
+
+RETURNS:
+  - %isDicomImage: hash with file path as keys and true or false as values (true
+                   if the file is a DICOM image file, false otherwise)
 
 # TO DO
 
