@@ -503,6 +503,7 @@ sub identify_scan_db {
     my $slice_thickness = ${fileref}->getParameter('slice_thickness');
     my $seriesUID = ${fileref}->getParameter('series_instance_uid');
     my $series_description = ${fileref}->getParameter('series_description');
+    my $image_type = ${fileref}->getParameter('acquisition:image_type');
     
     # get parameters specific to MRIs
     my ($tr, $te, $ti, $time);
@@ -551,7 +552,7 @@ sub identify_scan_db {
     
     # get the list of protocols for a site their scanner and subproject
     $query = "SELECT Scan_type, ScannerID, Center_name, TR_range, TE_range, TI_range, slice_thickness_range, xspace_range, yspace_range, zspace_range,
-              xstep_range, ystep_range, zstep_range, time_range, series_description_regex
+              xstep_range, ystep_range, zstep_range, time_range, series_description_regex, image_type
               FROM mri_protocol
               WHERE
              (Center_name='$psc' AND ScannerID='$ScannerID')
@@ -603,7 +604,9 @@ sub identify_scan_db {
                 && (!$rowref->{'xstep_range'} || &in_range($xstep, $rowref->{'xstep_range'}))
                 && (!$rowref->{'ystep_range'} || &in_range($ystep, $rowref->{'ystep_range'}))
                 && (!$rowref->{'zstep_range'} || &in_range($zstep, $rowref->{'zstep_range'}))
-                && (!$rowref->{'time_range'} || &in_range($time, $rowref->{'time_range'}))) {
+                && (!$rowref->{'time_range'} || &in_range($time, $rowref->{'time_range'}))
+		
+                && (!$rowref->{'image_type'} || $image_type =~ /$rowref->{'image_type'}/i)) {
                     return &scan_type_id_to_text($rowref->{'Scan_type'}, $dbhr);
             }
         }
@@ -615,7 +618,7 @@ sub identify_scan_db {
         $candid, $pscid,              $tr,              $te,
         $ti,     $slice_thickness,    $xstep,           $ystep,
         $zstep,  $xspace,             $yspace,          $zspace,
-        $time,   $seriesUID,          $tarchiveID
+        $time,   $seriesUID,          $tarchiveID,      $image_type,
     );
 
     return 'unknown';
@@ -658,7 +661,7 @@ sub insert_violated_scans {
         $candid, $pscid,              $tr,            $te,
         $ti,     $slice_thickness,    $xstep,         $ystep,
         $zstep,  $xspace,             $yspace,        $zspace,
-        $time,   $seriesUID,          $tarchiveID) = @_;
+        $time,   $seriesUID,          $tarchiveID,    $image_type) = @_;
 
     (my $query = <<QUERY) =~ s/\n//gm;
   INSERT INTO mri_protocol_violated_scans (
@@ -666,13 +669,13 @@ sub insert_violated_scans {
     series_description, minc_location, PatientName,           TR_range,
     TE_range,           TI_range,      slice_thickness_range, xspace_range,
     yspace_range,       zspace_range,  xstep_range,           ystep_range,
-    zstep_range,        time_range,    SeriesUID
+    zstep_range,        time_range,    SeriesUID,             image_type
   ) VALUES (
     ?, ?, ?, now(),
     ?, ?, ?, ?,
     ?, ?, ?, ?,
     ?, ?, ?, ?,
-    ?, ?, ?
+    ?, ?, ?, ?
   )
 QUERY
 
@@ -682,7 +685,7 @@ QUERY
         $minc_location, $patient_name,    $tr,         $te,
         $ti,            $slice_thickness, $xspace,     $yspace,
         $zspace,        $xstep,           $ystep,      $zstep,
-        $time,          $seriesUID
+        $time,          $seriesUID,       $image_type
     );
 
 }
