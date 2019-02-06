@@ -606,7 +606,8 @@ sub identify_scan_db {
                 && (!$rowref->{'zstep_range'} || &in_range($zstep, $rowref->{'zstep_range'}))
                 && (!$rowref->{'time_range'} || &in_range($time, $rowref->{'time_range'}))
 		
-                && (!$rowref->{'image_type'} || $image_type =~ /$rowref->{'image_type'}/i)) {
+                && (!$rowref->{'image_type'} || $image_type =~ /\Q$rowref->{'image_type'}\E/i) 
+                ) {
                     return &scan_type_id_to_text($rowref->{'Scan_type'}, $dbhr);
             }
         }
