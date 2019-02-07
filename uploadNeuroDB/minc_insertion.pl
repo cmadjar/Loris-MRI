@@ -618,13 +618,12 @@ if ((!defined$acquisitionProtocolIDFromProd)
 ################################################################
 ### Add series notification ####################################
 ################################################################
-$message =
-	"\n" . $subjectIDsref->{'CandID'} . " " .
-    	$subjectIDsref->{'PSCID'} ." " .
-    	$subjectIDsref->{'visitLabel'} .
-    	"\tacquired " . $file->getParameter('acquisition_date') .
-    	"\t" . $file->getParameter('series_description') .
-	"\n";
+my $acq_date = $file->getParameter('acquisition_date');
+$message = "\n"  . $subjectIDsref->{'CandID'}
+    	   . " " . $subjectIDsref->{'PSCID'}
+    	   . " " . $subjectIDsref->{'visitLabel'}; 
+$message .= "\tacquired " . $acq_date if $acq_date;
+$message .= "\t $file->getParameter('series_description')\n";
 $notifier->spool('mri new series', $message, 0,
     		'minc_insertion.pl', $upload_id, 'N', 
 		$notify_detailed);

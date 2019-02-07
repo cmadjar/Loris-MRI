@@ -375,11 +375,14 @@ sub determineSubjectID {
                             $this->{dbhr}
                         );
     if ($to_log) {
-        my $message = "\n==> Data found for candidate   : ".
-                            "CandID: ". $subjectIDsref->{'CandID'} .
-                            "- PSCID: ". $subjectIDsref->{'PSCID'} . "- Visit: ".
-                            $subjectIDsref->{'visitLabel'} . "- Acquired : ".
-                            $tarchiveInfo->{'DateAcquired'} . "\n";
+        my $message = sprintf(
+            "\n==> Data found for candidate CandID: %s, PSCID %s, Visit %s, Acquisition Date %s\n ",
+            $subjectIDsref->{'CandID'},
+            $subjectIDsref->{'PSCID'},
+            $subjectIDsref->{'visitLabel'},
+            (defined $tarchiveInfo->{'DateAcquired'}
+                ? $tarchiveInfo->{'DateAcquired'} : 'UNKNOWN')
+        );
 	$this->{LOG}->print($message);
         $this->spool($message, 'N', $upload_id, $notify_detailed);
     }
@@ -1172,7 +1175,7 @@ sub registerScanIntoDB {
         $this->update_mri_acquisition_dates(
             $sessionID, 
             $tarchiveInfo->{'DateAcquired'}
-        );
+        ) if $tarchiveInfo->{'DateAcquired'};
     }
     return $acquisitionProtocolID;
 }
