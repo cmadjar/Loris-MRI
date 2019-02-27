@@ -56,8 +56,8 @@ use NeuroDB::ExitCodes;
 # The %SPECIAL_ACQUISITIONS_FILTER variable has been created to filter out the
 # correct FileIDs of the images that need to be defaced for those special modalities
 my %SPECIAL_ACQUISITIONS_FILTER = (
-    'MP2RAGEinv1'   => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
-    'MP2RAGEinv2'   => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
+    'inv1-MP2RAGE' => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
+    'inv2-MP2RAGE' => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
 );
 
 # The @MULTI_CONTRAST_ACQUISITIONS_BASE_NAMES variable will store the base names
@@ -317,7 +317,7 @@ sub grep_FileIDs_to_deface {
 
     # add where clause for the session IDs specified to the script if -sessionIDs
     # was set
-    if ($session_id_arr) {
+    if (@$session_id_arr) {
         @where  = map { "f.SessionID = ?" } @$session_id_arr;
         $query .= sprintf(" AND (%s) ", join(" OR ", @where));
     }
