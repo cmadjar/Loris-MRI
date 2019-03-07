@@ -4,6 +4,7 @@ use strict;
 use warnings;
 no warnings 'once';
 use Getopt::Tabular;
+use File::Basename;
 use NeuroDB::DBI;
 use NeuroDB::ExitCodes;
 
@@ -15,33 +16,36 @@ use NeuroDB::ExitCodes;
 #############################################################
 
 my $profile;
+my $out_basedir;
 
 my @opt_table = (
-    [ '-profile', 'string', 1, \$profile, 'name of config file in ../dicom-archive/.loris_mri' ]
+    [ '-profile',     'string', 1, \$profile,     'name of config file in ../dicom-archive/.loris_mri'              ],
+    [ '-out_basedir', 'string', 1, \$out_basedir, 'path to the output base directory where the jpg will be created' ] 
 );
 
 my $Help = <<HELP;
 *******************************************************************************
-Run run_defacing_script.pl in batch mode
+Run pipeline_qc_face.pl in batch mode
 *******************************************************************************
 
-This script runs the defacing pipeline on multiple sessions. The list of 
-session IDs are provided through a text file (e.g. C<list_of_session_IDs.txt> 
-with one sessionID per line.
+This script runs the creation of 3D rendering QC images on multiple MINC files. 
+The list of MINC files to use to generate those 3D JPEG images are provided 
+through a text file (e.g. C<list_of_files.txt> with one file path per line.
 
-An example of what a C<list_of_session_IDs.txt> might contain for 3 session IDs
+An example of what a C<list_of_files.txt> might contain for 3 files to use to 
+create a 3D JPEG rendering of a scan:
 to be defaced:
 
- 123
- 124
- 125
+ /data/project/data/assembly/123456/V01/mri/processed/MINC_deface/project_123456_V01_t1w_001_t1w-defaced_001.mnc
+ /data/project/data/assembly/123456/V01/mri/processed/MINC_deface/project_123456_V01_t1w_002_t1w-defaced_001.mnc
+ /data/project/data/assembly/123456/V01/mri/processed/MINC_deface/project_123456_V01_t2w_001_t2w-defaced_001.mnc
 
-Documentation: perldoc batch_run_defacing_script.pl
+Documentation: perldoc batch_run_pipeline_qc_face_script.pl
 
 HELP
 
 my $Usage = <<USAGE;
-usage: ./batch_run_defacing_script.pl -profile prod < list_of_session_IDs.txt > log_batch_defacing.txt 2>&1 [options]
+usage: ./batch_run_pipeline_qc_deface_script.pl -profile prod < list_of_files.txt > log_batch_qc_deface.txt 2>&1 [options]
        $0 -help to list options
 USAGE
 
@@ -73,7 +77,11 @@ if ( !@Settings::db ) {
     exit $NeuroDB::ExitCodes::DB_SETTINGS_FAILURE;
 }
 
-
+if (!defined $out_basedir || !-e $out_basedir) {
+    print $Help;
+    print STDERR "$Usage\n\tERROR: You must specify a valid and existing out_basedir.\n\n";
+    exit $NeuroDB::ExitCodes::MISSING_ARG;
+}
 
 
 
@@ -101,7 +109,7 @@ $data_dir =~ s/\/$//g;
 ## Read STDIN into an array listing all SessionIDs
 #################################################################
 
-my @session_ids_list = <STDIN>;
+my @files_list = <STDIN>;
 
 
 
@@ -109,23 +117,24 @@ my @session_ids_list = <STDIN>;
 
 
 #################################################################
-## Loop through all session IDs to batch magic
+## Loop through all files to batch magic
 #################################################################
 
 my $counter    = 0;
 my $stdoutbase = "$data_dir/batch_output/defacestdout.log"; 
 my $stderrbase = "$data_dir/batch_output/defacestderr.log";
 
-foreach my $session_id (@session_ids_list) {
+foreach my $file_in (@files_list) {
 
     $counter++;
-    my $stdout = $stdoutbase.$counter;
-    my $stderr = $stderrbase.$counter;
+    my $stdout   = $stdoutbase.$counter;
+    my $stderr   = $stderrbase.$counter;
+    my $file_out = $out_basedir . "/" . basename($file_in, ".mnc") . ".jpg";
 
-    my $command = "run_defacing_script.pl -profile $profile -sessionIDs $session_id";
+    my $command = "pipeline_qc_face.pl $file_in $file_out";
 
     if ($is_qsub) {
-        open QSUB, " | qsub -V -S /bin/sh -e $stderr -o $stdout -N process_defacing_${counter}";
+            open QSUB, " | qsub -V -S /bin/sh -e $stderr -o $stdout -N process_qc_deface_${counter}";
         print QSUB $command;
         close QSUB;
     } else {
