@@ -121,10 +121,11 @@ my @files_list = <STDIN>;
 #################################################################
 
 my $counter    = 0;
-my $stdoutbase = "$data_dir/batch_output/defacestdout.log"; 
-my $stderrbase = "$data_dir/batch_output/defacestderr.log";
+my $stdoutbase = "$data_dir/batch_output/defaceqcstdout.log"; 
+my $stderrbase = "$data_dir/batch_output/defaceqcstderr.log";
 
 foreach my $file_in (@files_list) {
+    chomp ($file_in);
 
     $counter++;
     my $stdout   = $stdoutbase.$counter;

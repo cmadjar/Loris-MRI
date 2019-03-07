@@ -113,8 +113,8 @@ my @session_ids_list = <STDIN>;
 #################################################################
 
 my $counter    = 0;
-my $stdoutbase = "$data_dir/batch_output/defacestdout.log"; 
-my $stderrbase = "$data_dir/batch_output/defacestderr.log";
+my $stdoutbase = "$data_dir/batch_output/defacingstdout.log"; 
+my $stderrbase = "$data_dir/batch_output/defacingstderr.log";
 
 foreach my $session_id (@session_ids_list) {
 
