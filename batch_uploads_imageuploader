@@ -245,7 +245,7 @@ foreach my $input (@resultsarray)
 
     ##if qsub is enabled use it
     if ($is_qsub) {
-	     open QSUB, "| qsub -V -e $stderr -o $stdout -N process_imageuploader_${counter}";
+	     open QSUB, "| qsub -V -S /bin/sh -e $stderr -o $stdout -N process_imageuploader_${counter}";
     	 print QSUB $command;
     	 close QSUB;
     }
