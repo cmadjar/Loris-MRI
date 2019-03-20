@@ -507,7 +507,7 @@ if (defined($CandMismatchError)) {
     $candlogSth->execute(
         $file->getParameter('series_instance_uid'),
         $studyInfo{'TarchiveID'},
-        $minc,
+        NeuroDB::MRI::get_trashbin_file_rel_path($minc),
         $studyInfo{'PatientName'},
         $CandMismatchError
     );
@@ -601,6 +601,13 @@ my $acquisitionProtocolIDFromProd = $utility->registerScanIntoDB(
     $acquisitionProtocol, $minc,          $extra_validation_status,
     $reckless,            $sessionID,     $upload_id
 );
+
+# if the scan was inserted into the files table and there is an
+# extra_validation_status set to 'warning', update the mri_violations_log table
+# MincFile field with the path of the file in the assembly directory
+if (defined $acquisitionProtocolIDFromProd && $extra_validation_status eq 'warning') {
+    $utility->update_mri_violations_log_MincFile_path($file);
+}
 
 if ((!defined$acquisitionProtocolIDFromProd)
    && (defined(&Settings::isFileToBeRegisteredGivenProtocol))

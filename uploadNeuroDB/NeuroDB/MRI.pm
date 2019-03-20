@@ -664,6 +664,10 @@ sub insert_violated_scans {
         $zstep,  $xspace,             $yspace,        $zspace,
         $time,   $seriesUID,          $tarchiveID,    $image_type) = @_;
 
+    # determine the future relative path when the file will be moved to
+    # data_dir/trashbin at the end of the script's execution
+    my $file_rel_path = get_trashbin_file_rel_path($minc_location);
+
     (my $query = <<QUERY) =~ s/\n//gm;
   INSERT INTO mri_protocol_violated_scans (
     CandID,             PSCID,         TarchiveID,            time_run,
@@ -683,7 +687,7 @@ QUERY
     my $sth = $${dbhr}->prepare($query);
     my $success = $sth->execute(
         $candid,        $pscid,           $tarchiveID, $series_description,
-        $minc_location, $patient_name,    $tr,         $te,
+        $file_rel_path, $patient_name,    $tr,         $te,
         $ti,            $slice_thickness, $xspace,     $yspace,
         $zspace,        $xstep,           $ystep,      $zstep,
         $time,          $seriesUID,       $image_type
@@ -1612,6 +1616,30 @@ sub my_trim {
 	return $str;
 }
 
+
+=pod
+
+=head3 get_trashbin_file_rel_path($file)
+
+Determines and returns the relative path of a file moved to trashbin at the end of
+the insertion pipeline.
+
+INPUT: path to a given file
+
+RETURNS: the relative path of the file moved to the trashbin directory
+
+=cut
+
+sub get_trashbin_file_rel_path {
+    my ($file) = @_;
+
+    my @directories  = split(/\//, $file);
+    my $new_rel_path = "trashbin"
+                       . "/" . $directories[$#directories-1]
+                       . "/" . $directories[$#directories];
+
+    return $new_rel_path;
+}
 
 1;
 
