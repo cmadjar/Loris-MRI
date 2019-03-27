@@ -55,10 +55,7 @@ use NeuroDB::ExitCodes;
 #   phase image so should not deface)
 # The %SPECIAL_ACQUISITIONS_FILTER variable has been created to filter out the
 # correct FileIDs of the images that need to be defaced for those special modalities
-my %SPECIAL_ACQUISITIONS_FILTER = (
-    'inv1-MP2RAGE' => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
-    'inv2-MP2RAGE' => 'ORIGINAL\\\\\\\\PRIMARY\\\\\\\\M\\ND\\NORM',
-);
+my %SPECIAL_ACQUISITIONS_FILTER = ();
 
 # The @MULTI_CONTRAST_ACQUISITIONS_BASE_NAMES variable will store the base names
 # of multi-contrast acquisitions such as MP2RAGE, qT2star or fieldmap. These will
