@@ -1088,7 +1088,7 @@ sub move_minc {
     `$cmd`;
     $message = "\nFile $$minc \nmoved to:\n$new_name\n";
     $this->{LOG}->print($message);
-    $this->spool($message, 'N', $upload_id, $notify_detailed);
+    $this->spool($message, 'N', $upload_id, $notify_detailed) if $upload_id;
     $$minc = $new_name;
     return $new_name;
 }
@@ -1162,7 +1162,7 @@ sub registerScanIntoDB {
         
         $message = "\nAcq protocol: $acquisitionProtocol " 
 			. "- ID: $acquisitionProtocolID\n";
-        $this->spool($message, 'N', $upload_id, $notify_detailed);
+        $this->spool($message, 'N', $upload_id, $notify_detailed) if $upload_id;
 
         ########################################################
         # set Date_taken = last modification timestamp ######### 
@@ -1209,10 +1209,10 @@ sub registerScanIntoDB {
         # register into the db fixme if I ever want a dry run ## 
         ########################################################
         $message = "\nRegistering file into database\n";
-        $this->spool($message, 'N', $upload_id, $notify_detailed);
+        $this->spool($message, 'N', $upload_id, $notify_detailed) if $upload_id;
         $fileID = &NeuroDB::MRI::register_db($minc_file);
         $message = "\nFileID: $fileID\n";
-        $this->spool($message, 'N', $upload_id, $notify_detailed);
+        $this->spool($message, 'N', $upload_id, $notify_detailed) if $upload_id;
 
         ########################################################
         ### update mri_acquisition_dates table #################
