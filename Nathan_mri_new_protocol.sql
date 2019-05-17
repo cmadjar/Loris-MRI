@@ -68,6 +68,7 @@ UPDATE mri_protocol
 
 -- ALTER the mri_protocol table to add a column to specify the image_type and whatever is needed for the MT scans
 ALTER TABLE mri_protocol ADD COLUMN `image_type` varchar(255) DEFAULT NULL;
+ALTER TABLE mri_protocol ADD COLUMN `MT_tag` varchar(255) DEFAULT NULL;
 
 
 -- Insert into mri_protocol the scan types that will be recognized based on the series description
@@ -80,39 +81,64 @@ INSERT INTO mri_protocol
 
 -- Insert into mri_protocol the scan types that will be recognized based on the imaging parameters other than series_description
 INSERT INTO mri_protocol
-  ( Center_name, ScannerID, Scan_type,                                                                         TR_range, TE_range, TI_range, slice_thickness_range, time_range, image_type)
+  ( Center_name, ScannerID, Scan_type,                                                                         TR_range, TE_range, TI_range, slice_thickness_range, time_range)
   VALUES
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho1"),                    1000,     "12",     NULL,     3,                     604,        NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho2"),                    1000,     "30-31",  NULL,     3,                     604,        NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho3"),                    1000,     "48-49",  NULL,     3,                     604,        NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho1"),                      18,       "2-3",    NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho2"),                      18,       "4-5",    NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho3"),                      18,       "7-8",    NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho4"),                      18,       "9-10",   NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho5"),                      18,       "12-13",  NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho6"),                      18,       "14-15",  NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiPA"),                            3000,     "66",     NULL,     2,                     109,        NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiAPb0"),                          3000,     "66",     NULL,     2,                     5,          NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="SEpCASL"),                          4400,     "7.8",    NULL,     7,                     40,         NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="SEpCASLm0"),                        10000,    "10",     NULL,     7,                     4,          NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="NeuromelT1"),                       600,      "10",     NULL,     1.8,                   NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="axialFLAIR"),                       6000,     "356",    2200,     3,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND\\NORM"          ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="axialFLAIRfiltered"),               6000,     "356",    2200,     3,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND\\NORM\\FM\\FIL" ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="QSM"),                              20,       "7-8",    NULL,     1,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1magnitude"),         20,       "4-5",    NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1magnitudeAllCoils"), 20,       "4-5",    NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND\\NORM" ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1phase"),             20,       "4-5",    NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\P\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2magnitude"),         20,       "9-10",   NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2magnitudeAllCoils"), 20,       "9-10",   NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND\\NORM" ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2phase"),             20,       "9-10",   NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\P\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3magnitude"),         20,       "15",     NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3magnitudeAllCoils"), 20,       "15",     NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND\\NORM" ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3phase"),             20,       "15",     NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\P\\ND"       ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1map"),                            5000,     "1-2",    NULL,     8,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1mag"),                            5000,     "1-2",    NULL,     8,                     NULL,       "ORIGINAL\\PRIMARY\\M\\ND"              ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1-60"),                            4010,     "46",     NULL,     4,                     NULL,       "ORIGINAL\\PRIMARY\\FLIP ANGLE MAP\\ND" ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1-120"),                           4010,     "46",     NULL,     4,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="BIAS-32"),                          344,      "1-2",    NULL,     2,                     NULL,       NULL ),
-  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="BIAS-bc"),                          344,      "1-2",    NULL,     2,                     NULL,       NULL );
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho1"),                    1000,     "12",     NULL,     3,                     604       ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho2"),                    1000,     "30-31",  NULL,     3,                     604       ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="rsfmriAPecho3"),                    1000,     "48-49",  NULL,     3,                     604       ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho1"),                      18,       "2-3",    NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho2"),                      18,       "4-5",    NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho3"),                      18,       "7-8",    NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho4"),                      18,       "9-10",   NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho5"),                      18,       "12-13",  NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmT1wEcho6"),                      18,       "14-15",  NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiPA"),                            3000,     "66",     NULL,     2,                     109       ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiAPb0"),                          3000,     "66",     NULL,     2,                     5         ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="SEpCASL"),                          4400,     "7.8",    NULL,     7,                     40        ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="SEpCASLm0"),                        10000,    "10",     NULL,     7,                     4         ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="NeuromelT1"),                       600,      "10",     NULL,     1.8,                   NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="QSM"),                              20,       "7-8",    NULL,     1,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1-60"),                            4010,     "46",     NULL,     4,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1-120"),                           4010,     "46",     NULL,     4,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="BIAS-32"),                          344,      "1-2",    NULL,     2,                     NULL      ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="BIAS-bc"),                          344,      "1-2",    NULL,     2,                     NULL      );
 
--- add a check in MRI protocol check to make sure the PA and AP are respected for dwiAPb0 >  
+-- Insert into the mri_protocol scan types where the image type has to be taken into account
+INSERT INTO mri_protocol
+  ( Center_name, ScannerID, Scan_type,                                                                         TR_range, TE_range, TI_range, slice_thickness_range, image_type                                )
+  VALUES
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="axialFLAIR"),                       6000,     "356",    2200,     3,                     "ORIGINAL\\PRIMARY\\M\\ND\\NORM"          ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="axialFLAIRfiltered"),               6000,     "356",    2200,     3,                     "ORIGINAL\\PRIMARY\\M\\ND\\NORM\\FM\\FIL" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1magnitude"),         20,       "4-5",    NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1magnitudeAllCoils"), 20,       "4-5",    NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND\\NORM"          ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho1phase"),             20,       "4-5",    NULL,     4,                     "ORIGINAL\\PRIMARY\\P\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2magnitude"),         20,       "9-10",   NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2magnitudeAllCoils"), 20,       "9-10",   NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND\\NORM"          ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho2phase"),             20,       "9-10",   NULL,     4,                     "ORIGINAL\\PRIMARY\\P\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3magnitude"),         20,       "15",     NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3magnitudeAllCoils"), 20,       "15",     NULL,     4,                     "ORIGINAL\\PRIMARY\\M\\ND\\NORM"          ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="meFieldmapEcho3phase"),             20,       "15",     NULL,     4,                     "ORIGINAL\\PRIMARY\\P\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1map"),                            5000,     "1-2",    NULL,     8,                     "ORIGINAL\\PRIMARY\\M\\ND"                ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="B1mag"),                            5000,     "1-2",    NULL,     8,                     "ORIGINAL\\PRIMARY\\FLIP ANGLE MAP\\ND"   );
+
+-- Insert into mri_protocol scan types where MT tag has to be taken into account
+INSERT INTO mri_protocol
+  ( Center_name, ScannerID, Scan_type,                                                                         TR_range, TE_range, TI_range, slice_thickness_range, MT_tag     )
+  VALUES
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho1"),                     27,       "2-3",    NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho2"),                     27,       "4-5",    NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho3"),                     27,       "7-8",    NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho4"),                     27,       "9-10",   NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho5"),                     27,       "12-13",  NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMTonEcho6"),                     27,       "14-15",  NULL,     1,                     "A1/PFP/MT" ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho1"),                    27,       "2-3",    NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho2"),                    27,       "4-5",    NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho3"),                    27,       "7-8",    NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho4"),                    27,       "9-10",   NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho5"),                    27,       "12-13",  NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho6"),                    27,       "14-15",  NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho7"),                    27,       "18-19",  NULL,     1,                     "A1/PFP"    ),
+  ( "ZZZZ",      0,         (SELECT ID FROM mri_scan_type WHERE Scan_type="mpmMToffEcho8"),                    27,       "22-23",  NULL,     1,                     "A1/PFP"    );
+
+
+-- add a check in MRI protocol check to make sure the PA and AP are respected for dwiAPb0 >
