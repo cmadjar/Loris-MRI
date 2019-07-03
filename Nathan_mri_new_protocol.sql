@@ -69,6 +69,8 @@ UPDATE mri_protocol
 -- ALTER the mri_protocol table to add a column to specify the image_type and whatever is needed for the MT scans
 ALTER TABLE mri_protocol ADD COLUMN `image_type` varchar(255) DEFAULT NULL;
 ALTER TABLE mri_protocol ADD COLUMN `MT_tag` varchar(255) DEFAULT NULL;
+ALTER TABLE mri_protocol_violated_scans ADD COLUMN `image_type` varchar(255) DEFAULT NULL;
+ALTER TABLE mri_protocol_violated_scans ADD COLUMN `MT_tag` varchar(255) DEFAULT NULL;
 
 
 -- Insert into mri_protocol the scan types that will be recognized based on the series description
@@ -142,3 +144,8 @@ INSERT INTO mri_protocol
 
 
 -- add a check in MRI protocol check to make sure the PA and AP are respected for dwiAPb0 >
+INSERT INTO mri_protocol_checks
+  ( Scan_type,                                                Severity,  Header,                     ValidRegex)
+  VALUES
+  ( (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiAPb0"), 'exclude', 'phase_encoding_direction', 'AP'),
+  ( (SELECT ID FROM mri_scan_type WHERE Scan_type="dwiPA"),   'exclude', 'phase_encoding_direction', 'PA');
