@@ -305,6 +305,7 @@ sub getFileList {
     my ($dbh, $dataDir, $givenTarchiveID) = @_;
 
     # Query to grep all file entries
+    ### NOTE: parameter type hardcoded for open prevent ad...
     ( my $query = <<QUERY ) =~ s/\n/ /g;
 SELECT
   FileID,
@@ -312,7 +313,9 @@ SELECT
   AcquisitionProtocolID,
   c.CandID,
   s.Visit_label,
-  SessionID
+  SessionID,
+  pf_echonb.Value as EchoNumber,
+  pf_seriesnb.Value as SeriesNumber
 FROM
   files f
 JOIN
@@ -323,6 +326,8 @@ JOIN
   candidate c
 ON
   c.CandID=s.CandID
+LEFT JOIN parameter_file pf_echonb ON (f.FileID=pf.FileID) AND ParameterTypeID=155
+LEFT JOIN parameter_file pf_seriesnb ON (f.FileID=pf.FileID) AND ParameterTypeID=222
 WHERE
   f.OutputType IN ('native', 'defaced')
 AND
@@ -330,7 +335,9 @@ AND
 AND
   c.Entity_type = 'Human'
 AND
-  f.TarchiveSource = ? 
+  pt.Name = 'acquisition:echo_number'
+AND
+  f.TarchiveSource = ?
 QUERY
 
     # Prepare and execute query
@@ -348,6 +355,8 @@ QUERY
         $file_list{$i}{'candID'}                = $rowhr->{'CandID'};
         $file_list{$i}{'sessionID'}             = $rowhr->{'SessionID'};
         $file_list{$i}{'visitLabel'}            = $rowhr->{'Visit_label'};
+        $file_list{$i}{'echoNumber'}            = $rowhr->{'EchoNumber'};
+        $file_list{$i}{'seriesNumber'}          = $rowhr->{'SeriesNumber'};
         $i++;
     }
     return %file_list;
@@ -375,281 +384,202 @@ INPUTS:
 sub makeNIIAndHeader {
     
     my ( $dbh, %file_list) = @_;
-    my ($row, $mriScanType, $BIDSCategory, $BIDSSubCategory, $BIDSScanType, $BIDSEchoNumber, $destDirFinal);
+    my ($row, $loris_scan_type, $bids_category, $bids_scan_type_subcategory, $bids_scan_type, $bids_echo_number, $bids_scan_directory);
     foreach $row (keys %file_list) {
-        my $fileID            = $file_list{$row}{'fileID'};
-        my $minc              = $file_list{$row}{'file'};
-        my $fileAcqProtocolID = $file_list{$row}{'AcquisitionProtocolID'};
-        my $candID            = $file_list{$row}{'candID'};
-        my $visitLabelOrig    = $file_list{$row}{'visitLabel'};
+        my $fileID         = $file_list{$row}{'fileID'};
+        my $minc           = $file_list{$row}{'file'};
+        my $acqProtocolID  = $file_list{$row}{'AcquisitionProtocolID'};
 
-        # Get the scan category (anat, func, dwi, to know which subdirectory to place files in
-        ( my $query = <<QUERY ) =~ s/\n/ /g;
-SELECT
-  bmstr.MRIScanTypeID,
-  bids_category.BIDSCategoryName,
-  bids_scan_type_subcategory.BIDSScanTypeSubCategory,
-  bids_scan_type.BIDSScanType,
-  bmstr.BIDSEchoNumber,
-  mst.Scan_type
-FROM       bids_mri_scan_type_rel bmstr
-JOIN       mri_scan_type mst          ON mst.ID = bmstr.MRIScanTypeID
-JOIN       bids_category              USING (BIDSCategoryID)
-JOIN       bids_scan_type             USING (BIDSScanTypeID)
-LEFT JOIN  bids_scan_type_subcategory USING (BIDSScanTypeSubCategoryID)
-WHERE      mst.ID = ?
-QUERY
-        # Prepare and execute query
-        my $sth = $dbh->prepare($query);
-        $sth->execute($fileAcqProtocolID);
-        my $rowhr = $sth->fetchrow_hashref();
-        unless ($rowhr) {
+        ### Get the BIDS scans label information
+        my ($bids_categories_hash) = grep_bids_scan_categories_from_db($dbh, $acqProtocolID);
+        unless ($bids_categories_hash) {
             print "$minc will not be converted into BIDS as no entries were found "
                   . "in the bids_mri_scan_type_rel table for that scan type.\n";
             next;
         }
-        $mriScanType     = $rowhr->{'Scan_type'};
-        $BIDSCategory    = $rowhr->{'BIDSCategoryName'};
-        $BIDSSubCategory = $rowhr->{'BIDSScanTypeSubCategory'};
-        $BIDSScanType    = $rowhr->{'BIDSScanType'};
-        $BIDSEchoNumber  = $rowhr->{'BIDSEchoNumber'};
+        $loris_scan_type  = $bids_categories_hash->{'Scan_type'};
+        $bids_category    = $bids_categories_hash->{'BIDSCategoryName'};
+        $bids_scan_type   = $bids_categories_hash->{'BIDSScanType'};
+        $bids_echo_number = $bids_categories_hash->{'BIDSEchoNumber'};
+        $bids_scan_type_subcategory = $bids_categories_hash->{'BIDSScanTypeSubCategory'};
 
-        my $mincBase            = basename($minc);
-        my $nifti               = $mincBase;
+        ### skip if BIDS scan type contains magnitude since they will be created
+        ### when taking care of the phasediff fieldmap
+        next if $bids_scan_type =~ m/magnitude/g;
 
-        # Make extension nii instead of minc
-        $nifti                =~ s/mnc/nii/g;
+        ### determine the BIDS NIfTI filename
+        my $niftiFileName = determine_bids_nifti_file_name(
+            $minc, $prefix, $file_list{$row}, $bids_categories_hash
+        );
 
-        # If Visit Label contains underscores, remove them
-        my $visitLabel        = $visitLabelOrig;
-        $visitLabel           =~ s/_//g;
+        ### create the BIDS directory where the NIfTI file would go
+        $bids_scan_directory = determine_BIDS_scan_directory(
+            $file_list{$row}, $bids_categories_hash, $destDir
+        );
+        make_path($bids_scan_directory) unless(-d  $bids_scan_directory);
 
-        # Remove prefix; i.e project name; and add sub- and ses- in front of
-        # CandID and Visit label
-        my $remove  = $prefix . "_" . $candID . "_" . $visitLabelOrig;
-        my $replace = "sub-" . $candID . "_ses-" . $visitLabel;
-        # sequences with multi-echo need to have echo-1. echo-2, etc... appended to the filename
-        # TODO: add a check if the sequence is indeed a multi-echo (check SeriesUID
-        # and EchoTime from the database), and if not set, issue an error
-        # and exit and ask the project to set the BIDSMultiEcho for these sequences
-        # Also need to add .JSON for those multi-echo files
-        if ($BIDSEchoNumber) {
-            $replace .= "_echo-" . $BIDSEchoNumber;
+        ### check if the MINC file can be found on the file system
+        my $minc_full_path = "$dataDir/$minc";
+        if (! -e $minc_full_path) {
+            print "\nCould not find the following MINC file: $minc_full_path\n"
+                if $verbose;
+            next;
         }
-        $nifti                =~ s/$remove/$replace/g;
 
-        # make the filename have the BIDS Scan type name, in case the project
-        # Scan type name is not compliant;
-        # and append the word 'run' before run number
-        $remove = $mriScanType . "_";
-        # If the file is of type fMRI; need to add a BIDS subcategory type
-        # for example, task-rest for resting state fMRI
-        # or task-memory for memory task fMRI
-        # Exclude ASL as these are under 'func' for BIDS but will not have BIDSScanTypeSubCategory
-        if ($BIDSCategory eq 'func' && $BIDSScanType !~ m/asl/i) {
-            if ($BIDSSubCategory) {
-                $replace = $BIDSSubCategory . "_run-";
+        ### Convert the MINC file into the BIDS NIfTI file
+        print "\n*******Currently processing $minc_full_path********\n";
+        #  mnc2nii command then gzip it because BIDS expects it this way
+        my $success = create_nifti_bids_file(
+            $dataDir, $minc, $bids_scan_directory, $niftiFileName
+        );
+        unless ($success) {
+            print "WARNING: mnc2nii conversion failed for $minc.\n";
+            next;
+        }
+
+
+
+
+        #  create json information from MINC files header;
+        my ($json_filename, $json_fullpath) = determine_BIDS_scan_JSON_file(
+            $niftiFileName, $bids_scan_directory
+        );
+
+        my ($bids_header_name, $minc_header_name, $header_value, %header_hash);
+
+        # get this info from the MINC header instead of the database
+        # Name is as it appears in the database
+        # slice order is needed for resting state fMRI
+        my @minc_header_name_array = (
+            'acquisition:repetition_time', 'study:manufacturer',
+            'study:device_model',          'study:field_value',
+            'study:serial_no',             'study:software_version',
+            'acquisition:receive_coil',    'acquisition:scanning_sequence',
+            'acquisition:echo_time',       'acquisition:inversion_time',
+            'dicom_0x0018:el_0x1314',      'study:institution',
+            'acquisition:slice_order'
+        );
+        # Equivalent name as it appears in the BIDS specifications
+        my @bids_header_name_array = (
+            "RepetitionTime",        "Manufacturer",
+            "ManufacturerModelName", "MagneticFieldStrength",
+            "DeviceSerialNumber",    "SoftwareVersions",
+            "ReceiveCoilName",       "PulseSequenceType",
+            "EchoTime",              "InversionTime",
+            "FlipAngle",             "InstitutionName",
+            "SliceOrder"
+        );
+
+        my $manufacturerPhilips = 0;
+        my ($extraHeader, $extraHeaderVal);
+
+        foreach my $j (0 .. scalar(@minc_header_name_array) - 1) {
+            $minc_header_name = $minc_header_name_array[$j];
+            $bids_header_name = $bids_header_name_array[$j];
+            $bids_header_name =~ s/^\"+|\"$//g;
+            print "Adding now $bids_header_name header to $json_filename\n" if $verbose;
+
+            $header_value = NeuroDB::MRI::fetch_header_info($minc_full_path, $minc_header_name);
+            # Some headers need to be explicitly converted to floats in Perl
+            # so json_encode does not add the double quotation around them
+            my @convertToFloat = [
+                'acquisition:repetition_time', 'acquisition:echo_time',
+                'acquisition:inversion_time', 'dicom_0x0018:el_0x1314'
+            ];
+            $header_value *= 1 if ($header_value && $minc_header_name ~~ @convertToFloat);
+
+            if (defined($header_value)) {
+                $header_hash{$bids_header_name} = $header_value;
+                print "     $bids_header_name was found for $minc_full_path with value $header_value\n" if $verbose;
+
+                # If scanner is Philips, store this as condition 1 being met
+                if ($minc_header_name eq 'study:manufacturer' && $header_value =~ /Philips/i) {
+                    $manufacturerPhilips = 1;
+                }
             }
             else {
-                print STDERR "\n ERROR: Files of BIDS Category type 'func' and
-                                 which are fMRI need to have their
-                                 BIDSScanTypeSubCategory defined. \n\n";
-                exit $NeuroDB::ExitCodes::PROJECT_CUSTOMIZATION_FAILURE;
+                print "     $bids_header_name was not found for $minc_full_path\n" if $verbose;
             }
-        } else {
-            $replace = "run-";
         }
-        $nifti =~ s/$remove/$replace/g;
 
-        # find position of the last dot, so where the extension starts
-        my ($base,$path,$ext) = fileparse($nifti, qr{\..*});
-        $base = $base . "_" . $BIDSScanType;
-        $nifti = $base . $ext;
-
-        $destDirFinal = $destDir . "/sub-" . $candID . "/ses-" . $visitLabel . "/" . $BIDSCategory;
-        make_path($destDirFinal) unless(-d  $destDirFinal);
-
-        my $mincFullPath = $dataDir . "/" . $minc;
-        if (-e $mincFullPath) {
-            print "\n*******Currently processing $mincFullPath********\n";
-            #  mnc2nii command then gzip it because BIDS expects it this way
-            my $m2n_cmd = "mnc2nii -nii -quiet " .
-                            $dataDir . "/" . $minc . " " .
-                            $destDirFinal . "/" . $nifti;
-            system($m2n_cmd);
-
-            # the -f flag is to force overwrite of an existing output; otherwise, 
-            # the user is prompted for every file if they would like to override
-            my $gzip_cmd = "gzip -f " . $destDirFinal . "/" . $nifti;
-            system($gzip_cmd);
-
-            #  create json information from MINC files header;
-            my (@headerNameArr, $headerNameArr,
-                @headerNameDBArr, $headerNameDBArr,
-                @headerNameMINCArr, $headerNameMINCArr,
-                $headerName, $headerNameDB,
-                $headerNameMINC, $headerVal,
-                $headerFile);
-
-
-            $headerFile         = $nifti;
-            $headerFile         =~ s/nii/json/g;
-            open HEADERINFO, ">$destDirFinal/$headerFile";
-            HEADERINFO->autoflush(1);
-            select(HEADERINFO);
-            select(STDOUT);
-
-            my %header_hash;
-            my $header_hash;
-            my $currentHeaderJSON;
-   
-            # get this info from the MINC header instead of the database
-            # Name is as it appears in the database
-            # slice order is needed for resting state fMRI
-            @headerNameMINCArr = (
-                'acquisition:repetition_time','study:manufacturer',
-                'study:device_model','study:field_value',
-                'study:serial_no','study:software_version',
-                'acquisition:receive_coil','acquisition:scanning_sequence',
-                'acquisition:echo_time','acquisition:inversion_time',
-                'dicom_0x0018:el_0x1314', 'study:institution',
-                'acquisition:slice_order'
-            );
-            # Equivalent name as it appears in the BIDS specifications
-            @headerNameArr = (
-                "RepetitionTime","Manufacturer",
-                "ManufacturerModelName","MagneticFieldStrength",
-                "DeviceSerialNumber","SoftwareVersions",
-                "ReceiveCoilName","PulseSequenceType",
-                "EchoTime","InversionTime",
-                "FlipAngle", "InstitutionName",
-                "SliceOrder"
-            );
-
-            my $mincFileName = $dataDir . "/" . $minc;
-            my $manufacturerPhilips = 0;
-            my ($extraHeader, $extraHeaderVal);
-
-            foreach my $j (0..scalar(@headerNameMINCArr)-1) {
-                $headerNameMINC = $headerNameMINCArr[$j];
-                $headerName   = $headerNameArr[$j];
-                $headerName   =~ s/^\"+|\"$//g;
-                print "Adding now $headerName header to $headerFile\n" if $verbose;
-
-                $headerVal = NeuroDB::MRI::fetch_header_info(
-                    $mincFileName, $headerNameMINC
-                );
-                # Some headers need to be explicitely converted to floats in Perl
-                # so json_encode does not add the double quotation around them
-                my @convertToFloat = [
-                    'acquisition:repetition_time', 'acquisition:echo_time',
-                    'acquisition:inversion_time',  'dicom_0x0018:el_0x1314'
-                ];
-                $headerVal *= 1 if ($headerVal && $headerNameMINC ~~ @convertToFloat);
-
-                if (defined($headerVal)) {
-                    $header_hash{$headerName} = $headerVal;
-                        print "     $headerName was found for $mincFileName with value $headerVal\n" if $verbose;
-
-                    # If scanner is Philips, store this as condition 1 being met
-                    if ($headerNameMINC eq 'study:manufacturer' && $headerVal =~ /Philips/i) {
-                        $manufacturerPhilips = 1;
-                    }
-                }
-                else {
-                    print "     $headerName was not found for $mincFileName\n" if $verbose;
-                }
+        # If manufacturer is Philips, then add SliceOrder to the JSON manually
+        ######## This is just for the BETA version #########
+        ## See the TODO section for improvements needed in the future on SliceOrder ##
+        if ($manufacturerPhilips == 1) {
+            $extraHeader = "SliceOrder";
+            $extraHeader =~ s/^\"+|\"$//g;
+            if ($sliceOrderPhilips) {
+                $extraHeaderVal = $sliceOrderPhilips;
             }
-            
-            # If manufacturer is Philips, then add SliceOrder to the JSON manually
-            ######## This is just for the BETA version #########
-            ## See the TODO section for improvements needed in the future on SliceOrder ##
-            if ($manufacturerPhilips == 1) {
-                $extraHeader = "SliceOrder";
-                $extraHeader =~ s/^\"+|\"$//g;
-                if ($sliceOrderPhilips) {
-                    $extraHeaderVal = $sliceOrderPhilips;
-                }
-                else {
-                    print "   This is a Philips Scanner with no $extraHeader
+            else {
+                print "   This is a Philips Scanner with no $extraHeader
                     defined at the command line argument 'slice_order_philips'.
                     Logging in the JSON as 'Not Supplied' \n" if $verbose;
-                }
-                $header_hash{$extraHeader} = $extraHeaderVal;
-                print "    $extraHeaderVal was added for Philips Scanners'
-                $extraHeader \n" if $verbose;
-            } else {
-                # get the SliceTiming from the proper header
-                # split on the ',', remove trailing '.' if exists, and add [] to make it a list
-                $headerNameMINC = 'dicom_0x0019:el_0x1029';
-                $extraHeader    = "SliceTiming";
-                $headerVal      =  &NeuroDB::MRI::fetch_header_info(
-                    $mincFileName, $headerNameMINC
-                );
-                # Some earlier dcm2mnc converters created SliceTiming with values
-                # such as 0b, -91b, -5b, etc... so those MINC headers with `b`
-                # in them, do not report, just report that is it not supplied
-                # due likely to a dcm2mnc error
-                # print this message, even if NOT in verbose mode to let the user know
-                if ($headerVal) {
-                    if ($headerVal =~ m/b/) {
-                        $headerVal = "not supplied as the values read from the MINC header seem erroneous, due most likely to a dcm2mnc conversion problem";
-                        print "    SliceTiming is " . $headerVal . "\n";
-                    }
-                    else {
-                        $headerVal = [ map {$_ / 1000} split(",", $headerVal) ];
-                        print "    SliceTiming $headerVal was added \n" if $verbose;
-                    }
-                }
-                $header_hash{$extraHeader} = $headerVal;
-            } 
-
-            # for fMRI, we need to add TaskName which is e.g task-rest in the case of resting-state fMRI
-            if ($BIDSCategory eq 'func' && $BIDSScanType !~ m/asl/i) {
-                $extraHeader = "TaskName";
-                $extraHeader =~ s/^\"+|\"$//g;
-                # Assumes the SubCategory for funct BIDS categories in the BIDS
-                # database tables follow the naming convention
-                # `task-rest` or `task-memory`,
-                $extraHeaderVal = $BIDSSubCategory;
-                # so strip the `task-` part to get the TaskName
-                # $extraHeaderVal =~ s/^task-//;
-                # OR in general, strip everything up until and including the first hyphen
-                $extraHeaderVal =~ s/^[^-]+\-//;
-                $header_hash{$extraHeader} = $extraHeaderVal;
-                    print "    TASKNAME added for bold: $extraHeader
-                    with value $extraHeaderVal\n" if $verbose;
             }
-
-            # need to specify time unit for repetition time
-            %header_hash{'REPETITION_TIME_UNITS'}
-
-            $currentHeaderJSON = encode_json \%header_hash;
-            print HEADERINFO "$currentHeaderJSON";
-            close HEADERINFO;
+            $header_hash{$extraHeader} = $extraHeaderVal;
+            print "    $extraHeaderVal was added for Philips Scanners'
+                $extraHeader \n" if $verbose;
         }
         else {
-            print "\nCould not find the following minc file: $mincFullPath\n"
-                if $verbose;;
+            # get the SliceTiming from the proper header
+            # split on the ',', remove trailing '.' if exists, and add [] to make it a list
+            $minc_header_name = 'dicom_0x0019:el_0x1029';
+            $extraHeader = "SliceTiming";
+            $header_value = &NeuroDB::MRI::fetch_header_info(
+                $minc_full_path, $minc_header_name
+            );
+            # Some earlier dcm2mnc converters created SliceTiming with values
+            # such as 0b, -91b, -5b, etc... so those MINC headers with `b`
+            # in them, do not report, just report that is it not supplied
+            # due likely to a dcm2mnc error
+            # print this message, even if NOT in verbose mode to let the user know
+            if ($header_value) {
+                if ($header_value =~ m/b/) {
+                    $header_value = "not supplied as the values read from the MINC header seem erroneous, due most likely to a dcm2mnc conversion problem";
+                    print "    SliceTiming is " . $header_value . "\n";
+                }
+                else {
+                    $header_value = [ map {$_ / 1000} split(",", $header_value) ];
+                    print "    SliceTiming $header_value was added \n" if $verbose;
+                }
+            }
+            $header_hash{$extraHeader} = $header_value;
         }
 
+        # for fMRI, we need to add TaskName which is e.g task-rest in the case of resting-state fMRI
+        if ($bids_category eq 'func' && $bids_scan_type !~ m/asl/i) {
+            $extraHeader = "TaskName";
+            $extraHeader =~ s/^\"+|\"$//g;
+            # Assumes the SubCategory for funct BIDS categories in the BIDS
+            # database tables follow the naming convention
+            # `task-rest` or `task-memory`,
+            $extraHeaderVal = $bids_scan_type_subcategory;
+            # so strip the `task-` part to get the TaskName
+            # $extraHeaderVal =~ s/^task-//;
+            # OR in general, strip everything up until and including the first hyphen
+            $extraHeaderVal =~ s/^[^-]+\-//;
+            $header_hash{$extraHeader} = $extraHeaderVal;
+            print "    TASKNAME added for bold: $extraHeader
+                    with value $extraHeaderVal\n" if $verbose;
+        }
+
+        # need to specify time unit for repetition time
+        %header_hash{'REPETITION_TIME_UNITS'};
+
+        # for phasediff files, replace EchoTime by EchoTime1 and EchoTime2
+        if ($bids_scan_type =~ m/phasediff/i) {
+            #### hardcoded for open PREVENT-AD since always the same for
+            #### all datasets...
+            delete($header_hash{'EchoTime'});
+            $header_hash{'EchoTime1'} = 0.00492;
+            $header_hash{'EchoTime2'} = 0.00738;
+        }
+
+        write_BIDS_scan_JSON_file($json_fullpath, \%header_hash);
 
         # DWI files need 2 extra special files; .bval and .bvec
-        if ($BIDSScanType eq 'dwi') {
-            my ( @headerNameBVALDBArr, $headerNameBVALDBArr,
-                 @headerNameBVECDBArr, $headerNameBVECDBArr,
-                 $headerName, $headerNameDB, $headerVal, $bvalFile, $bvecFile);
-            @headerNameBVALDBArr      = ("acquisition:bvalues");
-            @headerNameBVECDBArr      = ("acquisition:direction_x","acquisition:direction_y","acquisition:direction_z");
-
-            #BVAL first
-            $bvalFile         = $nifti;
-            $bvalFile         =~ s/nii/bval/g;
-            &fetchBVAL_BVEC( $dbh, $nifti, $bvalFile, $fileID, $destDirFinal, @headerNameBVALDBArr);
-            #BVEC next
-            $bvecFile         = $nifti;
-            $bvecFile         =~ s/nii/bvec/g;
-            &fetchBVAL_BVEC( $dbh, $nifti, $bvecFile, $fileID, $destDirFinal, @headerNameBVECDBArr);
+        if ($bids_scan_type eq 'dwi') {
+            create_DWI_bval_bvec_files($dbh, $niftiFileName, $fileID, $bids_scan_directory);
         }
     }
 }
@@ -677,11 +607,14 @@ INPUTS:
 
 sub fetchBVAL_BVEC {
     my ( $dbh, $nifti, $bvFile, $fileID, $destDirFinal, @headerNameBVDBArr ) = @_;
+
     my ( $headerName, $headerNameDB, $headerVal);
+
     open BVINFO, ">$destDirFinal/$bvFile";
     BVINFO->autoflush(1);
     select(BVINFO);
     select(STDOUT);
+
     foreach my $j (0..scalar(@headerNameBVDBArr)-1) {
         $headerNameDB = $headerNameBVDBArr[$j];
         $headerNameDB =~ s/^\"+|\"$//g;
@@ -717,9 +650,182 @@ QUERY
             print "     $headerNameDB was not found for $nifti\n" if $verbose;
         }
     }
+
     close BVINFO;
 }
 
+
+sub grep_bids_scan_categories_from_db {
+    my ( $dbh, $acqProtocolID) = @_;
+
+    # Get the scan category (anat, func, dwi, to know which subdirectory to place files in
+    ( my $query = <<QUERY ) =~ s/\n/ /g;
+SELECT
+  bmstr.MRIScanTypeID,
+  bids_category.BIDSCategoryName,
+  bids_scan_type_subcategory.BIDSScanTypeSubCategory,
+  bids_scan_type.BIDSScanType,
+  bmstr.BIDSEchoNumber,
+  mst.Scan_type
+
+FROM bids_mri_scan_type_rel bmstr
+  JOIN      mri_scan_type mst          ON mst.ID = bmstr.MRIScanTypeID
+  JOIN      bids_category              USING (BIDSCategoryID)
+  JOIN      bids_scan_type             USING (BIDSScanTypeID)
+  LEFT JOIN bids_scan_type_subcategory USING (BIDSScanTypeSubCategoryID)
+
+WHERE
+  mst.ID = ?
+QUERY
+    # Prepare and execute query
+    my $sth = $dbh->prepare($query);
+    $sth->execute($acqProtocolID);
+    my $rowhr = $sth->fetchrow_hashref();
+
+    return $rowhr;
+}
+
+sub create_nifti_bids_file {
+    my ($data_dir, $minc_path, $bids_dir, $nifti_name) = @_;
+
+    my $cmd = "mnc2nii -nii -quiet $data_dir/$minc_path $bids_dir/$nifti_name";
+    system($cmd);
+
+    my $gz_cmd = "gzip -f $bids_dir/$nifti_name";
+    system($gz_cmd);
+
+    return -e "$bids_dir/$nifti_name.gz";
+}
+
+sub determine_bids_nifti_file_name {
+    my ($minc, $loris_prefix, $minc_file_hash, $bids_label_hash) = @_;
+
+    # grep LORIS information used to label the MINC file
+    my $candID            = $minc_file_hash->{'candID'};
+    my $loris_visit_label = $minc_file_hash->{'Visit_label'};
+    my $loris_scan_type   = $bids_label_hash->{'Scan_type'};
+
+    # grep the different BIDS information to use to name the NIfTI file
+    my $bids_category    = $bids_label_hash->{BIDSCategoryName};
+    my $bids_subcategory = $bids_label_hash->{BIDSScanTypeSubCategory};
+    my $bids_scan_type   = $bids_label_hash->{BIDSScanType};
+    my $bids_echo_nb     = $bids_label_hash->{BIDSEchoNumber};
+
+    # determine the NIfTI name based on the MINC name
+    my $nifti_name = basename($minc);
+    $nifti_name    =~ s/mnc$/nii/;
+
+    # remove _ that could potentially be in the LORIS visit label
+    my $bids_visit_label = $loris_visit_label;
+    $bids_visit_label =~ s/_//g;
+
+    # replace LORIS specifics with BIDS naming
+    my $remove  = "$loris_prefix\_$candID\_$loris_visit_label";
+    my $replace = "sub-$candID\_ses-$bids_visit_label";
+    # sequences with multi-echo need to have echo-1. echo-2, etc... appended to the filename
+    # TODO: add a check if the sequence is indeed a multi-echo (check SeriesUID
+    # and EchoTime from the database), and if not set, issue an error
+    # and exit and ask the project to set the BIDSMultiEcho for these sequences
+    # Also need to add .JSON for those multi-echo files
+    if ($bids_echo_nb) {
+        $replace .= "_echo-$bids_echo_nb";
+    }
+    $nifti_name =~ s/$remove/$replace/g;
+
+    # make the filename have the BIDS Scan type name, in case the project
+    # Scan type name is not compliant;
+    # and append the word 'run' before run number
+    # If the file is of type fMRI; need to add a BIDS subcategory type
+    # for example, task-rest for resting state fMRI
+    # or task-memory for memory task fMRI
+    # Exclude ASL as these are under 'func' for BIDS but will not have BIDSScanTypeSubCategory
+    if ($bids_category eq 'func' && $bids_scan_type !~ m/asl/i) {
+        if ($bids_label_hash->{BIDSScanTypeSubCategory}) {
+            $replace = $bids_subcategory . "_run-";
+        }
+        else {
+            print STDERR "\n ERROR: Files of BIDS Category type 'func' and
+                                 which are fMRI need to have their
+                                 BIDSScanTypeSubCategory defined. \n\n";
+            exit $NeuroDB::ExitCodes::PROJECT_CUSTOMIZATION_FAILURE;
+        }
+    } else {
+        $replace = "run-";
+    }
+    $remove = "$loris_scan_type\_";
+    $nifti_name =~ s/$remove/$replace/g;
+
+    # find position of the last dot of the NIfTI file, where the extension starts
+    my ($base, $path, $ext) = fileparse($nifti_name, qr{\..*});
+    $nifti_name = $base . "_" . $bids_scan_type . $ext;
+
+    return $nifti_name;
+}
+
+sub determine_BIDS_scan_directory {
+    my ($minc_file_hash, $bids_label_hash, $bids_root_dir) = @_;
+
+    # grep LORIS information used to label the MINC file
+    my $candID      = $minc_file_hash->{'candID'};
+    my $visit_label = $minc_file_hash->{'Visit_label'};
+    $visit_label    =~ s/_//g; # remove _ that could potentially be in the LORIS visit label
+
+    # grep the BIDS category that will be used in the BIDS path
+    my $bids_category = $bids_label_hash->{BIDSCategoryName};
+
+    my $bids_scan_directory = "$bids_root_dir/sub-$candID/ses-$visit_label/$bids_category";
+
+    return $bids_scan_directory;
+}
+
+
+sub determine_BIDS_scan_JSON_file {
+    my ($nifti_name, $bids_scan_directory) = @_;
+
+    my $json_filename = $nifti_name;
+    $json_filename    =~ s/nii/json/g;
+
+    my $json_fullpath = "$bids_scan_directory/$json_filename";
+
+    return ($json_filename, $json_fullpath);
+}
+
+
+sub write_BIDS_scan_JSON_file {
+    my ($json_fullpath, $header_hash) = @_;
+
+    open HEADERINFO, ">$json_fullpath";
+    HEADERINFO->autoflush(1);
+    select(HEADERINFO);
+    select(STDOUT);
+    my $currentHeaderJSON = encode_json $header_hash;
+    print HEADERINFO "$currentHeaderJSON";
+    close HEADERINFO;
+}
+
+sub create_DWI_bval_bvec_files {
+    my ($dbh, $nifti_file_name, $fileID, $bids_scan_directory) = @_;
+
+    my @headerNameBVALDBArr = ("acquisition:bvalues");
+    my @headerNameBVECDBArr = ("acquisition:direction_x","acquisition:direction_y","acquisition:direction_z");
+
+    #BVAL first
+    my $bvalFile = $nifti_file_name;
+    $bvalFile    =~ s/nii/bval/g;
+    &fetchBVAL_BVEC(
+        $dbh,    $nifti_file_name,     $bvalFile,
+        $fileID, $bids_scan_directory, @headerNameBVALDBArr
+    );
+
+    #BVEC next
+    my $bvecFile = $nifti_file_name;
+    $bvecFile    =~ s/nii/bvec/g;
+    &fetchBVAL_BVEC(
+        $dbh,    $nifti_file_name,     $bvecFile,
+        $fileID, $bids_scan_directory, @headerNameBVECDBArr
+    );
+
+}
 
 __END__
 
