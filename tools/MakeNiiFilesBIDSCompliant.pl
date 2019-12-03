@@ -308,7 +308,7 @@ sub getFileList {
     ### NOTE: parameter type hardcoded for open prevent ad...
     ( my $query = <<QUERY ) =~ s/\n/ /g;
 SELECT
-  FileID,
+  f.FileID,
   File,
   AcquisitionProtocolID,
   c.CandID,
@@ -326,16 +326,14 @@ JOIN
   candidate c
 ON
   c.CandID=s.CandID
-LEFT JOIN parameter_file pf_echonb ON (f.FileID=pf.FileID) AND ParameterTypeID=155
-LEFT JOIN parameter_file pf_seriesnb ON (f.FileID=pf.FileID) AND ParameterTypeID=222
+LEFT JOIN parameter_file pf_echonb ON (f.FileID=pf_echonb.FileID) AND pf_echonb.ParameterTypeID=155
+LEFT JOIN parameter_file pf_seriesnb ON (f.FileID=pf_seriesnb.FileID) AND pf_seriesnb.ParameterTypeID=222
 WHERE
   f.OutputType IN ('native', 'defaced')
 AND
   f.FileType = 'mnc'
 AND
   c.Entity_type = 'Human'
-AND
-  pt.Name = 'acquisition:echo_number'
 AND
   f.TarchiveSource = ?
 QUERY
@@ -583,7 +581,7 @@ sub determine_bids_nifti_file_name {
 
     # grep LORIS information used to label the MINC file
     my $candID            = $minc_file_hash->{'candID'};
-    my $loris_visit_label = $minc_file_hash->{'Visit_label'};
+    my $loris_visit_label = $minc_file_hash->{'visitLabel'};
     my $loris_scan_type   = $bids_label_hash->{'Scan_type'};
 
     # grep the different BIDS information to use to name the NIfTI file
@@ -636,7 +634,7 @@ sub determine_bids_nifti_file_name {
     $remove = "$loris_scan_type\_";
     $nifti_name =~ s/$remove/$replace/g;
 
-    if ($bids_scan_type == 'magnitude' && $run_nb && $echo_nb) {
+    if ($bids_scan_type eq 'magnitude' && $run_nb && $echo_nb) {
         # use the same run number as the phasediff
         $nifti_name =~ s/_run-\d\d\d_/_$run_nb\_/g;
         # if echo number is provided, then modify name of the magnitude files
@@ -659,7 +657,7 @@ sub determine_BIDS_scan_directory {
 
     # grep LORIS information used to label the MINC file
     my $candID      = $minc_file_hash->{'candID'};
-    my $visit_label = $minc_file_hash->{'Visit_label'};
+    my $visit_label = $minc_file_hash->{'visitLabel'};
     $visit_label    =~ s/_//g; # remove _ that could potentially be in the LORIS visit label
 
     # grep the BIDS category that will be used in the BIDS path
@@ -721,10 +719,7 @@ sub create_DWI_bval_bvec_files {
 sub gather_parameters_for_BIDS_JSON_file {
     my ($minc_full_path, $json_filename, $bids_categories_hash) = @_;
 
-    my ($header_hash, $manufacturerPhilips) = grep_generic_header_info_for_JSON_file($minc_full_path, $json_filename);
-
-
-    grep_SliceOrder_info_for_JSON_file($header_hash, $minc_full_path, $manufacturerPhilips);
+    my ($header_hash) = grep_generic_header_info_for_JSON_file($minc_full_path, $json_filename);
 
     my $bids_category  = $bids_categories_hash->{'BIDSCategoryName'};
     my $bids_scan_type = $bids_categories_hash->{'BIDSScanType'};
@@ -742,8 +737,6 @@ sub gather_parameters_for_BIDS_JSON_file {
 
 sub grep_generic_header_info_for_JSON_file {
     my ($minc_full_path, $json_filename) = @_;
-
-    my ($bids_header_name, $minc_header_name, $header_value, %header_hash);
 
     # get this info from the MINC header instead of the database
     # Name is as it appears in the database
@@ -770,11 +763,16 @@ sub grep_generic_header_info_for_JSON_file {
 
     my $manufacturerPhilips = 0;
 
+    my (%header_hash);
     foreach my $j (0 .. scalar(@minc_header_name_array) - 1) {
-        $minc_header_name = $minc_header_name_array[$j];
-        $bids_header_name = $bids_header_name_array[$j];
-        $bids_header_name =~ s/^\"+|\"$//g;
+        my $minc_header_name = $minc_header_name_array[$j];
+        my $bids_header_name = $bids_header_name_array[$j];
+        $bids_header_name    =~ s/^\"+|\"$//g;
         print "Adding now $bids_header_name header to info to write to $json_filename\n" if $verbose;
+
+        my $header_value = NeuroDB::MRI::fetch_header_info(
+            $minc_full_path, $minc_header_name
+        );
 
         # Some headers need to be explicitly converted to floats in Perl
         # so json_encode does not add the double quotation around them
@@ -800,7 +798,7 @@ sub grep_generic_header_info_for_JSON_file {
 
     grep_SliceOrder_info_for_JSON_file(\%header_hash, $minc_full_path, $manufacturerPhilips);
 
-    return (\%header_hash, $manufacturerPhilips);
+    return (\%header_hash);
 }
 
 sub grep_SliceOrder_info_for_JSON_file {
@@ -877,8 +875,8 @@ sub grep_phasediff_associated_magnitude_files {
 
     # grep phasediff session ID and series number to grep the corresponding
     # magnitude files
-    my $phasediff_sessionID    = $phasediff_loris_hash->{'SessionID'};
-    my $phasediff_seriesNumber = $phasediff_loris_hash->{'SeriesNumber'};
+    my $phasediff_sessionID    = $phasediff_loris_hash->{'sessionID'};
+    my $phasediff_seriesNumber = $phasediff_loris_hash->{'seriesNumber'};
 
     # fetch the acquisition protocol ID that corresponds to the magnitude files
     my $magnitudeAcqProtID = grep_acquisitionProtocolID_from_BIDS_scan_type($dbh);
@@ -886,9 +884,9 @@ sub grep_phasediff_associated_magnitude_files {
     my %magnitude_files;
     foreach my $row (keys %$loris_files_list) {
         my $acqProtID    = $loris_files_list->{$row}{'AcquisitionProtocolID'};
-        my $sessionID    = $loris_files_list->{$row}{'SessionID'};
-        my $echoNumber   = $loris_files_list->{$row}{'EchoNumber'};
-        my $seriesNumber = $loris_files_list->{$row}{'SeriesNumber'};
+        my $sessionID    = $loris_files_list->{$row}{'sessionID'};
+        my $echoNumber   = $loris_files_list->{$row}{'echoNumber'};
+        my $seriesNumber = $loris_files_list->{$row}{'seriesNumber'};
 
         # skip the row unless the file is a magnitude protocol of the same
         # session with the series number is equal to the phasediff's series
@@ -945,7 +943,7 @@ sub create_BIDS_magnitude_files {
     foreach my $row (keys %$magnitude_files_hash) {
         my $minc           = $magnitude_files_hash->{$row}{'file'};
         my $acqProtocolID  = $magnitude_files_hash->{$row}{'AcquisitionProtocolID'};
-        my $echo_nb        = $magnitude_files_hash->{$row}{'EchoNumber'};
+        my $echo_nb        = $magnitude_files_hash->{$row}{'echoNumber'};
 
         ### check if the MINC file can be found on the file system
         my $minc_full_path = "$dataDir/$minc";
