@@ -20,7 +20,11 @@ CREATE TABLE `bids_scan_type_subcategory` (
 INSERT INTO `bids_scan_type_subcategory` (BIDSScanTypeSubCategory) VALUES
   ('task-rest'),
   ('task-encoding'),
-  ('task-retrieval');
+  ('task-retrieval'),
+  ('inv-1_part-mag'),
+  ('inv-2_part-mag'),
+  ('part-mag'),
+  ('part-phase');
 
 CREATE TABLE `bids_scan_type` (
   `BIDSScanTypeID` int(3)       UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -37,7 +41,10 @@ INSERT INTO `bids_scan_type` (BIDSScanType) VALUES
   ('T2star'),
   ('asl'),
   ('phasediff'),
-  ('magnitude');
+  ('magnitude'),
+  ('MP2RAGE'),
+  ('T1map'),
+  ('UNIT1');
 
 CREATE TABLE `bids_mri_scan_type_rel` (
   `MRIScanTypeID`             int(10) UNSIGNED NOT NULL,
@@ -88,7 +95,202 @@ INSERT INTO bids_mri_scan_type_rel
       (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
       NULL
   ),
-
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'inv1-MP2RAGE-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='inv-1_part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='MP2RAGE'),
+    NULL
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'inv2-MP2RAGE-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='inv-2_part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='MP2RAGE'),
+    NULL
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'T1map-MP2RAGE-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    NULL,
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T1map'),
+    NULL
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'uni-denoised-MP2RAGE-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    NULL,
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='UNIT1'),
+    NULL
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo1-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    1
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo2-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    2
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo3-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    3
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo4-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    4
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo5-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    5
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo6-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    6
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo7-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    7
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo8-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    8
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo9-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    9
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo10-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    10
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo11-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    11
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo12-magnitude-qT2star-defaced'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-mag'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    12
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo1-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    1
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo2-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    2
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo3-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    3
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo4-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    4
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo5-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    5
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo6-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    6
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo7-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    7
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo8-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    8
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo9-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    9
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo10-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    10
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo11-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    11
+  ),
+  (
+    (SELECT ID FROM mri_scan_type WHERE Scan_type = 'echo12-phase-qT2star'),
+    (SELECT BIDSCategoryID FROM bids_category WHERE BIDSCategoryName='anat'),
+    (SELECT BIDSScanTypeSubCategoryID FROM bids_scan_type_subcategory WHERE BIDSScanTypeSubCategory='part-phase'),
+    (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='T2star'),
+    12
+  ),
 
   (
     (SELECT ID FROM mri_scan_type WHERE Scan_type = 'bold'),

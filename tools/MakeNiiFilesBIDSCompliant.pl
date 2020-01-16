@@ -77,6 +77,52 @@ use NeuroDB::MRI;
 use NeuroDB::ExitCodes;
 use JSON;
 
+my $AUTHORS = [
+    'Breitner JCS',
+    'Poirier J',
+    'Villeneuve S'
+];
+my $ACKNOWLEDGMENTS = <<TEXT;
+I will state the source of data and cite the primary publication of PREVENT-AD in
+the methods section of my manuscripts by including language similar to the
+following: 'Data used in preparation of this article were obtained from the
+Pre-symptomatic Evaluation of Novel or Experimental Treatments for Alzheimer's
+Disease (PREVENT-AD) program. (Breitner et al., 2016)'.
+TEXT
+my $README = <<TEXT;
+The PREVENT-AD (Pre-symptomatic Evaluation of Experimental or Novel Treatments for
+Alzheimer Disease) cohort is composed of cognitively healthy participants over 55
+years old, at risk of developing Alzheimer Disease (AD) as their parents and/or
+siblings were/are affected by the disease. These ‘at-risk’ participants have been
+followed for a naturalistic study of the pre-symptomatic phase of AD since 2011
+using multi-modal measurements of various disease indicators. Two clinical trials
+intended to test pharmaco-preventive agents have also been conducted.
+
+The first release of the PREVENT-AD dataset includes longitudinal data from 232
+participants either in the observational cohort or from INTREPAD, the main clinical
+trial. INTREPAD (Investigation of Naproxen as a TREatment for Prevention of
+Alzheimer’s Disease) is a double-blind, placebo controlled, randomized trial of
+naproxen sodium 220 mg or placebo twice daily.
+
+Available data includes structural and functional Magnetic Resonance Imaging (MRI),
+and basic demographics (age at MRI, Gender, Study language, Handedness).
+
+More details on the study description can be found at
+https://conp.ca/wp-content/uploads/2019/04/PREVENT-AD-short-description.pdf
+TEXT
+my $BIDSIGNORE = <<TEXT;
+*asl*.nii.gz
+*asl*.json
+*echo*T2star*.nii.gz
+*echo*T2star*.json
+*MP2RAGE*.nii.gz
+*MP2RAGE*.json
+*UNIT1*.nii.gz
+*UNIT1*.json
+TEXT
+
+
+
 my $profile             = undef;
 my $tarchiveID          = undef;
 my $BIDSVersion         = "1.1.1 & BEP0001";
@@ -223,12 +269,34 @@ my %dataset_desc_hash = (
     'Name'                  => $datasetName,
     'LORISScriptVersion'    => $LORISScriptVersion,
     'License'               => 'GLPv3',
-    'Authors'               => ['LORIS community <loris.info@mcin.ca> and McGill Centre for Integrative Neuroscience'],
-    'HowToAcknowledge'      => 'Dataset generated using LORIS and LORIS-MRI; please cite this paper: Das S. et al (2011). LORIS: a web-based data management system for multi-center studies, Frontiers in Neuroinformatics, 5:37 ',
+    'Authors'               => $AUTHORS,
+    'HowToAcknowledge'      => $ACKNOWLEDGMENTS,
     'LORISReleaseVersion'   => $MRIVersion);
 my $json = encode_json \%dataset_desc_hash;
 print DATADESCINFO "$json\n";
 close DATADESCINFO;
+
+# Create the README BIDS file
+my $readmeFile = $destDir . "/README";
+print "\n*******Creating the README file $readmeFile *******\n";
+open README, ">$readmeFile" or die "Can not write file $readmeFile: $!\n";
+README->autoflush(1);
+select(README);
+select(STDOUT);
+print README "$README\n";
+close README;
+
+# Create a .gitignore file for BIDS validator to ignore file types that are not
+# yet part of the BIDS specification
+my $bidsignore = $destDir . "/.bidsignore";
+print "\n*******Creating the .bidsignore file $bidsignore *******\n";
+open BIDSIGNORE, ">$bidsignore" or die "Can not write file $bidsignore: $!\n";
+BIDSIGNORE->autoflush(1);
+select(BIDSIGNORE);
+select(STDOUT);
+print BIDSIGNORE "$BIDSIGNORE\n";
+close BIDSIGNORE;
+
 
 my ($query, $sth);
 
@@ -460,6 +528,7 @@ sub makeNIIAndHeader {
         if ($bids_scan_type eq 'dwi') {
             create_DWI_bval_bvec_files($dbh, $niftiFileName, $fileID, $bids_scan_directory);
         }
+
     }
 }
 
@@ -580,26 +649,26 @@ sub determine_bids_nifti_file_name {
     my ($minc, $loris_prefix, $minc_file_hash, $bids_label_hash, $run_nb, $echo_nb) = @_;
 
     # grep LORIS information used to label the MINC file
-    my $candID            = $minc_file_hash->{'candID'};
+    my $candID = $minc_file_hash->{'candID'};
     my $loris_visit_label = $minc_file_hash->{'visitLabel'};
-    my $loris_scan_type   = $bids_label_hash->{'Scan_type'};
+    my $loris_scan_type = $bids_label_hash->{'Scan_type'};
 
     # grep the different BIDS information to use to name the NIfTI file
-    my $bids_category    = $bids_label_hash->{BIDSCategoryName};
+    my $bids_category = $bids_label_hash->{BIDSCategoryName};
     my $bids_subcategory = $bids_label_hash->{BIDSScanTypeSubCategory};
-    my $bids_scan_type   = $bids_label_hash->{BIDSScanType};
-    my $bids_echo_nb     = $bids_label_hash->{BIDSEchoNumber};
+    my $bids_scan_type = $bids_label_hash->{BIDSScanType};
+    my $bids_echo_nb = $bids_label_hash->{BIDSEchoNumber};
 
     # determine the NIfTI name based on the MINC name
     my $nifti_name = basename($minc);
-    $nifti_name    =~ s/mnc$/nii/;
+    $nifti_name =~ s/mnc$/nii/;
 
     # remove _ that could potentially be in the LORIS visit label
     my $bids_visit_label = $loris_visit_label;
     $bids_visit_label =~ s/_//g;
 
     # replace LORIS specifics with BIDS naming
-    my $remove  = "$loris_prefix\_$candID\_$loris_visit_label";
+    my $remove = "$loris_prefix\_$candID\_$loris_visit_label";
     my $replace = "sub-$candID\_ses-$bids_visit_label";
     # sequences with multi-echo need to have echo-1. echo-2, etc... appended to the filename
     # TODO: add a check if the sequence is indeed a multi-echo (check SeriesUID
@@ -611,6 +680,15 @@ sub determine_bids_nifti_file_name {
     }
     $nifti_name =~ s/$remove/$replace/g;
 
+    # if the LORIS scan type contain the -defaced string add more string
+    # manipulation to determine the BIDS NIfTI filename
+    if ($loris_scan_type =~ m/-defaced$/) {
+        # remove the defaced part of the file name
+        $nifti_name =~ s/_$loris_scan_type\_\d\d\d//g;
+        # remove -defaced string from the loris_scan_type
+        $loris_scan_type =~ s/-defaced$//g;
+    }
+
     # make the filename have the BIDS Scan type name, in case the project
     # Scan type name is not compliant;
     # and append the word 'run' before run number
@@ -621,11 +699,26 @@ sub determine_bids_nifti_file_name {
     if ($bids_category eq 'func' && $bids_scan_type !~ m/asl/i) {
         if ($bids_label_hash->{BIDSScanTypeSubCategory}) {
             $replace = $bids_subcategory . "_run-";
-        }
-        else {
+        } else {
             print STDERR "\n ERROR: Files of BIDS Category type 'func' and
                                  which are fMRI need to have their
                                  BIDSScanTypeSubCategory defined. \n\n";
+            exit $NeuroDB::ExitCodes::PROJECT_CUSTOMIZATION_FAILURE;
+        }
+    } elsif ($bids_scan_type eq 'MP2RAGE') {
+        if ($bids_label_hash->{BIDSScanTypeSubCategory}) {
+            $replace = $bids_subcategory . "_run-";
+        } else {
+            print STDERR "\n ERROR: Files of BIDS Scan type 'MP2RAGE' need to have
+                                 their BIDSScanTypeSubCategory defined. \n\n";
+            exit $NeuroDB::ExitCodes::PROJECT_CUSTOMIZATION_FAILURE;
+        }
+    } elsif ($bids_scan_type eq 'T2star' && $bids_echo_nb) {
+        if ($bids_label_hash->{BIDSScanTypeSubCategory}) {
+            $replace = $bids_subcategory . "_run-";
+        } else {
+            print STDERR "\n ERROR: Files of BIDS Scan type 'T2star' with multiple echoes
+                                need to have their BIDSScanTypeSubCategory defined. \n\n";
             exit $NeuroDB::ExitCodes::PROJECT_CUSTOMIZATION_FAILURE;
         }
     } else {
@@ -636,12 +729,11 @@ sub determine_bids_nifti_file_name {
 
     if ($bids_scan_type eq 'magnitude' && $run_nb && $echo_nb) {
         # use the same run number as the phasediff
-        $nifti_name =~ s/_run-\d\d\d_/_$run_nb\_/g;
+        $nifti_name =~ s/run-\d\d\d/$run_nb/g;
         # if echo number is provided, then modify name of the magnitude files
         # to be magnitude1 or magnitude2 depending on the echo number
         if ($echo_nb) {
-            $replace    = "_magnitude$echo_nb";
-            $nifti_name =~ s/_magnitude$/$replace/g;
+            $bids_scan_type .= $echo_nb;
         }
     }
 
@@ -729,8 +821,16 @@ sub gather_parameters_for_BIDS_JSON_file {
         grep_TaskName_info_for_JSON_file($bids_categories_hash, $header_hash);
     }
 
-    # need to specify time unit for repetition time
-    # $header_hash->{'REPETITION_TIME_UNITS'} = 's';
+    # for 4D datasets, we need to add PhaseEncodingDirection and EffectiveEchoSpacing
+    if ($bids_category eq 'func' || $bids_category eq 'asl' || $bids_category eq 'dwi') {
+        add_PhaseEncodingDirection_info_for_JSON_file($header_hash);
+        add_EffectiveEchoSpacing_and_TotalReadoutTime_info_for_JSON_file($header_hash, $minc_full_path);
+    }
+
+    # for MP2RAGE, we need to add RepetitionTimeExcitation
+    if ($bids_scan_type eq 'MP2RAGE' || $bids_scan_type eq 'T1map' || $bids_scan_type eq 'UNIT1') {
+        add_RepetitionTimeExcitation_info_for_JSON_file($header_hash, $minc_full_path);
+    }
 
     return $header_hash;
 }
@@ -799,6 +899,51 @@ sub grep_generic_header_info_for_JSON_file {
     grep_SliceOrder_info_for_JSON_file(\%header_hash, $minc_full_path, $manufacturerPhilips);
 
     return (\%header_hash);
+}
+
+sub add_PhaseEncodingDirection_info_for_JSON_file {
+    my ($header_hash) = @_;
+
+    ### Note: this is hardcoded as this information is not available in the MINC
+    ### files and is stable across the PREVENT-AD project.
+    $header_hash->{'PhaseEncodingDirection'} = 'j-';
+}
+
+sub add_EffectiveEchoSpacing_and_TotalReadoutTime_info_for_JSON_file {
+    my ($header_hash, $minc_full_path) = @_;
+
+    # Conveniently, for Siemens’ data, this value is easily obtained as
+    # 1/[BWPPPE * ReconMatrixPE], where BWPPPE is the "BandwidthPerPixelPhaseEncode
+    # in DICOM tag (0019,1028) and ReconMatrixPE is the size of the actual
+    # reconstructed data in the phase direction (which is NOT reflected in a
+    # single DICOM tag for all possible aforementioned scan manipulations)
+    my $bwpppe = &NeuroDB::MRI::fetch_header_info(
+        $minc_full_path, 'dicom_0x0019:el_0x1028'
+    );
+    my $reconMatrixPE = &NeuroDB::MRI::fetch_header_info(
+        $minc_full_path, 'dicom_0x0051:el_0x100b'
+    );
+    $reconMatrixPE =~ s/[a-z]?\*\d+[a-z]?//;
+
+    # compute the effective echo spacing
+    my $effectiveEchoSpacing =  1 / ($bwpppe * $reconMatrixPE);
+    $header_hash->{'EffectiveEchoSpacing'} = $effectiveEchoSpacing;
+
+    # compute the total readout time
+    # If EffectiveEchoSpacing has been properly computed, TotalReadoutTime is just
+    # EffectiveEchoSpacing * (ReconMatrixPE - 1)
+    $header_hash->{'TotalReadoutTime'} = $effectiveEchoSpacing * ($reconMatrixPE - 1)
+}
+
+sub add_RepetitionTimeExcitation_info_for_JSON_file {
+    my ($header_hash, $minc_full_path) = @_;
+
+    # RepetitionTimeExcitation is stored in DICOM field dicom_0x0018:el_0x0080
+    my $reptimeexcitation = &NeuroDB::MRI::fetch_header_info(
+        $minc_full_path, 'dicom_0x0018:el_0x0080'
+    );
+
+    $header_hash->{'RepetitionTimeExcitation'} = $reptimeexcitation / 1000;
 }
 
 sub grep_SliceOrder_info_for_JSON_file {
@@ -893,7 +1038,7 @@ sub grep_phasediff_associated_magnitude_files {
         # number + 1
         next unless ($acqProtID == $magnitudeAcqProtID
             && $sessionID == $phasediff_sessionID
-            && $seriesNumber == ($phasediff_seriesNumber + 1)
+            && $seriesNumber == ($phasediff_seriesNumber - 1)
         );
 
         # add the different magnitude files to the magnitude_files hash
