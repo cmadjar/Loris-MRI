@@ -78,9 +78,7 @@ use NeuroDB::ExitCodes;
 use JSON;
 
 my $AUTHORS = [
-    'Breitner JCS',
-    'Poirier J',
-    'Villeneuve S'
+    'StoP-AD Center - Douglas Mental Health University Institute'
 ];
 my $ACKNOWLEDGMENTS = <<TEXT;
 I will state the source of data and cite the primary publication of PREVENT-AD in
@@ -268,7 +266,6 @@ my %dataset_desc_hash = (
     'BIDSVersion'           => $BIDSVersion,
     'Name'                  => $datasetName,
     'LORISScriptVersion'    => $LORISScriptVersion,
-    'License'               => 'GLPv3',
     'Authors'               => $AUTHORS,
     'HowToAcknowledge'      => $ACKNOWLEDGMENTS,
     'LORISReleaseVersion'   => $MRIVersion);
