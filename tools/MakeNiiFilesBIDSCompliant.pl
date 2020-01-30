@@ -120,7 +120,6 @@ my $BIDSIGNORE = <<TEXT;
 TEXT
 
 
-
 my $profile             = undef;
 my $tarchiveID          = undef;
 my $BIDSVersion         = "1.1.1 & BEP0001";
@@ -473,6 +472,9 @@ sub makeNIIAndHeader {
         my $bids_scan_type   = $bids_categories_hash->{'BIDSScanType'};
         next if $bids_scan_type =~ m/magnitude/g;
 
+        ### create an entry in participants.tsv file if it was not already created
+        add_entry_in_participants_bids_file($file_list{$row}, $destDir, $dbh);
+
         ### determine the BIDS NIfTI filename
         my $niftiFileName = determine_bids_nifti_file_name(
             $minc, $prefix, $file_list{$row}, $bids_categories_hash
@@ -525,6 +527,9 @@ sub makeNIIAndHeader {
             create_DWI_bval_bvec_files($dbh, $niftiFileName, $fileID, $bids_scan_directory);
         }
 
+        ### add an entry in the sub-xxx_scans.tsv file with age
+        my $nifti_full_path = "$bids_scan_directory/$niftiFileName";
+        add_entry_in_scans_tsv_bids_file($file_list{$row}, $destDir, $nifti_full_path, $dbh);
     }
 }
 
@@ -720,7 +725,7 @@ sub determine_bids_nifti_file_name {
     } else {
         $replace = "run-";
     }
-    $remove = "$loris_scan_type\_";
+    $remove     = "$loris_scan_type\_";
     $nifti_name =~ s/$remove/$replace/g;
 
     if ($bids_scan_type eq 'magnitude' && $run_nb && $echo_nb) {
@@ -738,6 +743,176 @@ sub determine_bids_nifti_file_name {
     $nifti_name = $base . "_" . $bids_scan_type . $ext;
 
     return $nifti_name;
+}
+
+sub add_entry_in_participants_bids_file {
+    my ($minc_file_hash, $bids_root_dir, $dbh) = @_;
+
+    my $participants_tsv_file  = $bids_root_dir . '/participants.tsv';
+    my $participants_json_file = $bids_root_dir . '/participants.json';
+
+    my $candID = $minc_file_hash->{'candID'};
+
+    if (! -e $participants_tsv_file) {
+        # create the tsv and json file if they do not exist
+        create_participants_tsv_and_json_file($participants_tsv_file, $participants_json_file);
+    } else {
+        # read participants.tsv file and check if a row is already present for
+        # that subject
+        open (FH, '<:encoding(utf8)', $participants_tsv_file) or die " $!";
+        while (my $row = <FH>) {
+            return if ($row =~ m/^sub-$candID/);
+        }
+    }
+
+    # grep the values to insert in the participants.tsv file
+    my $values = grep_participants_values_from_db($dbh, $candID);
+    open (FH, '>>:encoding(utf8)', $participants_tsv_file) or die " $!";
+    print FH (join("\t", @$_), "\n") for $values;
+    close FH;
+}
+
+sub grep_participants_values_from_db {
+    my ($dbh, $candID) = @_;
+
+    ( my $query = <<QUERY ) =~ s/\n/ /g;
+SELECT
+  Gender,
+  test_language,
+  result,
+  interpretation
+FROM
+  handedness
+JOIN
+  flag USING (CommentID)
+JOIN
+  session ON (session.ID=flag.SessionID)
+JOIN
+  candidate USING (CandID)
+WHERE
+  CandID = ?;
+QUERY
+
+    my $sth = $dbh->prepare($query);
+    $sth->execute($candID);
+
+    my @values = $sth->fetchrow_array;
+    unshift(@values, "sub-$candID");
+
+    return \@values;
+}
+
+sub create_participants_tsv_and_json_file {
+    my ($participants_tsv_file, $participants_json_file) = @_;
+
+    # create participants.tsv file
+    my @header_row = [
+        'participant_id', 'sex', 'test_language', 'handedness_score', 'handedness_interpretation'
+    ];
+    open(FH, ">:encoding(utf8)", $participants_tsv_file) or die " $!";
+    print FH (join("\t", @$_), "\n") for @header_row;
+    close FH;
+
+    # create participants.json file
+    my %header_dict = (
+        'sex' => {
+            'Description' => 'sex of the participant',
+            'Levels'      => {'Male' => 'Male', 'Female' => 'Female'}
+        },
+        'test_language' => {
+            'Description' => 'language used for testing',
+            'Levels'      => {'French' => 'French', 'English' => 'English'}
+        },
+        'handedness_score' => {
+            'Description' => "participant's handedness score from the Edinburgh Handedness Inventory",
+        },
+        'handedness_interpretation' => {
+            'Description' => "participant's handedness interpretation from the Edinburgh Handedness Inventory",
+            'Levels'      => {
+                'Right-handed' => 'Right-handed',
+                'Left-handed'  => 'Left-handed',
+                'Ambidextrous' => 'Ambidextrous'
+            }
+        }
+    );
+    write_BIDS_scan_JSON_file($participants_json_file, \%header_dict);
+}
+
+sub add_entry_in_scans_tsv_bids_file {
+    my ($minc_file_hash, $bids_root_dir, $nifti_full_path, $dbh) = @_;
+
+
+
+    my $bids_sub_id = "sub-$minc_file_hash->{'candID'}";
+    my $bids_ses_id = "ses-$minc_file_hash->{'visitLabel'}";
+
+    my $bids_scans_rootdir   = "$bids_root_dir/$bids_sub_id/$bids_ses_id";
+    my $bids_scans_tsv_file  = "$bids_scans_rootdir/$bids_sub_id\_$bids_ses_id\_scans.tsv";
+    my $bids_scans_json_file = "$bids_scans_rootdir/$bids_sub_id\_$bids_ses_id\_scans.json";
+
+    # determine the filename entry to be added to the TSV file
+    my $filename_entry = "$nifti_full_path.gz";
+    $filename_entry =~ s/$bids_scans_rootdir\///g;
+
+    if (! -e $bids_scans_tsv_file) {
+        # create the tsv and json file if they do not exist
+        create_scans_tsv_and_json_file($bids_scans_tsv_file, $bids_scans_json_file);
+    } else {
+        # read participants.tsv file and check if a row is already present for
+        # that subject
+        open (FH, '<:encoding(utf8)', $bids_scans_tsv_file) or die " $!";
+        while (my $row = <FH>) {
+            return if ($row =~ m/^$filename_entry/);
+        }
+    }
+
+    # grep the values to insert in the participants.tsv file
+    my $candID     = $minc_file_hash->{'candID'};
+    my $visitLabel = $minc_file_hash->{'visitLabel'};
+    my $values     = grep_age_values_from_db($dbh, $candID, $visitLabel, $filename_entry);
+    open (FH, '>>:encoding(utf8)', $bids_scans_tsv_file) or die " $!";
+    print FH (join("\t", @$_), "\n") for $values;
+    close FH;
+}
+
+sub create_scans_tsv_and_json_file {
+    my ($scans_tsv_file, $scans_json_file) = @_;
+
+    # create participants.tsv file
+    my @header_row = [ 'filename', 'candidate_age_at_acquisition' ];
+    open(FH, ">:encoding(utf8)", $scans_tsv_file) or die " $!";
+    print FH (join("\t", @$_), "\n") for @header_row;
+    close FH;
+
+    # create participants.json file
+    my %header_dict = (
+        'candidate_age_at_acquisition' => {
+            'Description' => 'candidate age in months at the time of the acquisition',
+            'Units'       => 'Months'
+        }
+    );
+    write_BIDS_scan_JSON_file($scans_json_file, \%header_dict);
+}
+
+sub grep_age_values_from_db {
+    my ($dbh, $candID, $visitLabel, $filename_entry) = @_;
+
+    ( my $query = <<QUERY ) =~ s/\n/ /g;
+SELECT
+  age_at_MRI
+FROM
+  session
+WHERE
+  CandID = ? AND Visit_label = ?;
+QUERY
+
+    my $sth = $dbh->prepare($query);
+    $sth->execute($candID, $visitLabel);
+
+    my @values = $sth->fetchrow_array;
+    unshift(@values, $filename_entry);
+
+    return \@values;
 }
 
 sub determine_BIDS_scan_directory {
