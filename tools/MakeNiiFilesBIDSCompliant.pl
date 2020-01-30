@@ -331,7 +331,7 @@ while ( my $rowhr = $sth->fetchrow_hashref()) {
     # If no TarchiveID is given loop through all
     # Else, use the given TarchiveID at the command line
 
-    my %file_list = &getFileList( $dbh, $dataDir, $givenTarchiveID );
+    my %file_list = &getFileList( $dbh, $givenTarchiveID );
 
     # Make NIfTI files and JSON headers out of those MINC
     &makeNIIAndHeader( $dbh, %file_list);
@@ -349,7 +349,7 @@ exit $NeuroDB::ExitCodes::SUCCESS;
 
 =pod
 
-=head3 getFileList($dbh, $dataDir, $givenTarchiveID)
+=head3 getFileList($dbh, $givenTarchiveID)
 
 This function will grep all the C<TarchiveID> and associated C<ArchiveLocation>
 present in the C<tarchive> table and will create a hash of this information
@@ -357,7 +357,6 @@ including new C<ArchiveLocation> to be inserted into the database.
 
 INPUTS:
     - $dbh             : database handler
-    - $dataDir         : where the imaging files are located
     - $givenTarchiveID : the C<TarchiveID> under consideration
 
 RETURNS:
@@ -367,7 +366,7 @@ RETURNS:
 
 sub getFileList {
 
-    my ($dbh, $dataDir, $givenTarchiveID) = @_;
+    my ($dbh, $givenTarchiveID) = @_;
 
     # Query to grep all file entries
     ### NOTE: parameter type hardcoded for open prevent ad...
@@ -829,6 +828,12 @@ sub gather_parameters_for_BIDS_JSON_file {
         add_RepetitionTimeExcitation_info_for_JSON_file($header_hash, $minc_full_path);
     }
 
+    # for ASL, we need to add a few fields to the JSON file (note they are hardcoded
+    # as could not find them in the MINC header)
+    if ($bids_scan_type eq 'asl') {
+        add_ASL_specific_info_for_JSON_file($header_hash);
+    }
+
     return $header_hash;
 }
 
@@ -941,6 +946,19 @@ sub add_RepetitionTimeExcitation_info_for_JSON_file {
     );
 
     $header_hash->{'RepetitionTimeExcitation'} = $reptimeexcitation / 1000;
+}
+
+sub add_ASL_specific_info_for_JSON_file {
+    my ($header_hash) = @_;
+
+    # these are all hardcoded as they cannot be found in the MINC file
+    $header_hash->{'LabelingType'}          = 'PCASL';
+    $header_hash->{'ASLContext'}            = '(Label-Control)*40';
+    $header_hash->{'LabelingDuration'}      = 1.5;
+    $header_hash->{'InitialPostLabelDelay'} = 0.9;
+    $header_hash->{'BackgroundSuppression'} = 'False';
+    $header_hash->{'VascularCrushing'}      = 'False';
+    $header_hash->{'M0'}                    = {'WithinASL', 'False'};
 }
 
 sub grep_SliceOrder_info_for_JSON_file {
