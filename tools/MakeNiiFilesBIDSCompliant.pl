@@ -257,20 +257,15 @@ close($fh);
 my $dataDescFileName = "dataset_description.json";
 my $dataDescFile     = $destDir . "/" . $dataDescFileName;
 print "\n*******Creating the dataset description file $dataDescFile *******\n";
-open DATADESCINFO, ">$dataDescFile" or die "Can not write file $dataDescFile: $!\n";
-DATADESCINFO->autoflush(1);
-select(DATADESCINFO);
-select(STDOUT);
 my %dataset_desc_hash = (
     'BIDSVersion'           => $BIDSVersion,
     'Name'                  => $datasetName,
     'LORISScriptVersion'    => $LORISScriptVersion,
     'Authors'               => $AUTHORS,
     'HowToAcknowledge'      => $ACKNOWLEDGMENTS,
-    'LORISReleaseVersion'   => $MRIVersion);
-my $json = encode_json \%dataset_desc_hash;
-print DATADESCINFO "$json\n";
-close DATADESCINFO;
+    'LORISReleaseVersion'   => $MRIVersion
+);
+write_BIDS_JSON_file($dataDescFile, \%dataset_desc_hash);
 
 # Create the README BIDS file
 my $readmeFile = $destDir . "/README";
@@ -520,7 +515,7 @@ sub makeNIIAndHeader {
             create_BIDS_magnitude_files($niftiFileName, $magnitude_files_hash);
         }
 
-        write_BIDS_scan_JSON_file($json_fullpath, $header_hash);
+        write_BIDS_JSON_file($json_fullpath, $header_hash);
 
         # DWI files need 2 extra special files; .bval and .bvec
         if ($bids_scan_type eq 'dwi') {
@@ -835,7 +830,7 @@ sub create_participants_tsv_and_json_file {
             }
         }
     );
-    write_BIDS_scan_JSON_file($participants_json_file, \%header_dict);
+    write_BIDS_JSON_file($participants_json_file, \%header_dict);
 }
 
 sub add_entry_in_scans_tsv_bids_file {
@@ -891,7 +886,7 @@ sub create_scans_tsv_and_json_file {
             'Units'       => 'Months'
         }
     );
-    write_BIDS_scan_JSON_file($scans_json_file, \%header_dict);
+    write_BIDS_JSON_file($scans_json_file, \%header_dict);
 }
 
 sub grep_age_values_from_db {
@@ -944,14 +939,16 @@ sub determine_BIDS_scan_JSON_file_path {
 }
 
 
-sub write_BIDS_scan_JSON_file {
+sub write_BIDS_JSON_file {
     my ($json_fullpath, $header_hash) = @_;
 
-    open HEADERINFO, ">$json_fullpath";
+    my $json = JSON->new->allow_nonref;
+    my $currentHeaderJSON = $json->pretty->encode($header_hash);
+
+    open HEADERINFO, ">$json_fullpath" or die "Can not write file $json_fullpath: $!\n";
     HEADERINFO->autoflush(1);
     select(HEADERINFO);
     select(STDOUT);
-    my $currentHeaderJSON = encode_json $header_hash;
     print HEADERINFO "$currentHeaderJSON";
     close HEADERINFO;
 }
@@ -1328,7 +1325,7 @@ sub create_BIDS_magnitude_files {
             $minc_full_path, $json_filename, $bids_categories_hash
         );
 
-        write_BIDS_scan_JSON_file($json_fullpath, $header_hash);
+        write_BIDS_JSON_file($json_fullpath, $header_hash);
     }
 }
 
