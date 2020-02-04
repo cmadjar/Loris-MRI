@@ -1016,13 +1016,23 @@ sub grep_generic_header_info_for_JSON_file {
     # Name is as it appears in the database
     # slice order is needed for resting state fMRI
     my @minc_header_name_array = (
-        'acquisition:repetition_time', 'study:manufacturer',
-        'study:device_model',          'study:field_value',
-        'study:serial_no',             'study:software_version',
-        'acquisition:receive_coil',    'acquisition:scanning_sequence',
-        'acquisition:echo_time',       'acquisition:inversion_time',
-        'dicom_0x0018:el_0x1314',      'study:institution',
-        'acquisition:slice_order'
+        'acquisition:repetition_time',   'study:manufacturer',
+        'study:device_model',            'study:field_value',
+        'study:serial_no',               'study:software_version',
+        'acquisition:receive_coil',      'acquisition:scanning_sequence',
+        'acquisition:echo_time',         'acquisition:inversion_time',
+        'dicom_0x0018:el_0x1314',        'study:institution',
+        'acquisition:slice_order',       'study:modality',
+        'acquisition:imaging_frequency', 'patient:position',
+        'dicom_0x0018:el_0x0023',        'acquisition:series_description',
+        'acquisition:protocol',          'dicom_0x0018:el_0x0020',
+        'dicom_0x0018:el_0x0021',        'dicom_0x0018:el_0x0024',
+        'acquisition:image_type',        'dicom_0x0020:el_0x0011',
+        'dicom_0x0020:el_0x0012',        'acquisition:slice_thickness',
+        'acquisition:SAR',               'acquisition:phase_enc_dir',
+        'acquisition:percent_phase_fov', 'acquisition:num_phase_enc_steps',
+        'acquisition:pixel_bandwidth',   'dicom_0x0020:el_0x0037',
+        'acquisition:echo_number'
     );
     # Equivalent name as it appears in the BIDS specifications
     my @bids_header_name_array = (
@@ -1032,7 +1042,17 @@ sub grep_generic_header_info_for_JSON_file {
         "ReceiveCoilName",       "PulseSequenceType",
         "EchoTime",              "InversionTime",
         "FlipAngle",             "InstitutionName",
-        "SliceOrder"
+        "SliceOrder",            "Modality",
+        "ImagingFrequency",      "PatientPosition",
+        "MRAcquisitionType",     "SeriesDescription",
+        "ProtocolName",          "ScanningSequence",
+        "SequenceVariant",       "SequenceName",
+        "ImageType",             "SeriesNumber",
+        "AcquisitionNumber",     "SliceThickness",
+        "SAR",                   "InPlanePhaseEncodingDirectionDICOM",
+        "PercentPhaseFOV",       "PhaseEncodingSteps",
+        "PixelBandwidth",        "ImageOrientationPatientDICOM",
+        "EchoNumber"
     );
 
     my $manufacturerPhilips = 0;
@@ -1051,10 +1071,22 @@ sub grep_generic_header_info_for_JSON_file {
         # Some headers need to be explicitly converted to floats in Perl
         # so json_encode does not add the double quotation around them
         my @convertToFloat = [
-            'acquisition:repetition_time', 'acquisition:echo_time',
-            'acquisition:inversion_time', 'dicom_0x0018:el_0x1314'
+            'acquisition:repetition_time',     'acquisition:echo_time',
+            'acquisition:inversion_time',      'dicom_0x0018:el_0x1314',
+            'acquisition:imaging_frequency',   'study:field_value',
+            'dicom_0x0020:el_0x0011',          'dicom_0x0020:el_0x0012',
+            'acquisition:slice_thickness',     'acquisition:SAR',
+            'dicom_0x0018:el_0x1314',          'acquisition:percent_phase_fov',
+            'acquisition:num_phase_enc_steps', 'acquisition:pixel_bandwidth',
+            'acquisition:echo_number'
         ];
         $header_value *= 1 if ($header_value && $minc_header_name ~~ @convertToFloat);
+        $header_value /= 1000000 if ($header_value && $minc_header_name eq 'acquisition:imaging_frequency');
+        my @convertToArray = ['acquisition:image_type', 'dicom_0x0020:el_0x0037'];
+        if ($header_value && $minc_header_name ~~ @convertToArray) {
+            my @values = split("\\\\\\\\", $header_value);
+            $header_value = \@values;
+        }
 
         if (defined($header_value)) {
             $header_hash{$bids_header_name} = $header_value;
