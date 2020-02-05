@@ -328,10 +328,13 @@ while ( my $rowhr = $sth->fetchrow_hashref()) {
     my %file_list = &getFileList( $dbh, $givenTarchiveID );
 
     # Make NIfTI files and JSON headers out of those MINC
-    &makeNIIAndHeader( $dbh, %file_list);
+    my $phasediff_list = &makeNIIAndHeader( $dbh, %file_list);
     if (defined($tarchiveID)) {
         print "\nFinished processing TarchiveID $givenTarchiveID\n";
     }
+
+    #
+    &updateFieldmapIntendedFor(\%file_list, $phasediff_list);
 }
 
 if (!defined($tarchiveID)) {
@@ -445,6 +448,8 @@ sub makeNIIAndHeader {
         my $fileID         = $file_list{$row}{'fileID'};
         my $minc           = $file_list{$row}{'file'};
         my $acqProtocolID  = $file_list{$row}{'AcquisitionProtocolID'};
+        my $sessionID      = $file_list{$row}{'sessionID'};
+
 
         ### check if the MINC file can be found on the file system
         my $minc_full_path = "$dataDir/$minc";
@@ -492,20 +497,27 @@ sub makeNIIAndHeader {
             next;
         }
 
-        #  create json information from MINC files header;
+        # determine JSON filename
         my ($json_filename, $json_fullpath) = determine_BIDS_scan_JSON_file_path(
             $niftiFileName, $bids_scan_directory
         );
+        $file_list{$row}{'niiFileName'}  = "$niftiFileName.gz";
+        $file_list{$row}{'jsonFileName'} = $json_filename;
 
+        #  determine JSON information from MINC files header;
         my ($header_hash) = gather_parameters_for_BIDS_JSON_file(
             $minc_full_path, $json_filename, $bids_categories_hash
         );
 
         # for phasediff files, replace EchoTime by EchoTime1 and EchoTime2
         # and create the magnitude files associated with it
+        my %phasediff_seriesnb_hash;
         if ($bids_scan_type =~ m/phasediff/i) {
             #### hardcoded for open PREVENT-AD since always the same for
             #### all datasets...
+            my $series_number = $file_list{$row}{'seriesNumber'};
+            $phasediff_seriesnb_hash{$series_number}{'jsonFileName'}    = $json_filename;
+            $phasediff_seriesnb_hash{$series_number}{'IntendedForList'} = ();
             delete($header_hash->{'EchoTime'});
             $header_hash->{'EchoTime1'} = 0.00492;
             $header_hash->{'EchoTime2'} = 0.00738;
@@ -513,6 +525,12 @@ sub makeNIIAndHeader {
                 \%file_list, $file_list{$row}, $dbh
             );
             create_BIDS_magnitude_files($niftiFileName, $magnitude_files_hash);
+        }
+
+        if ( $bids_categories_hash->{'BIDSScanTypeSubCategory'}
+             && $bids_categories_hash->{'BIDSScanTypeSubCategory'} =~ m/task-(encoding|retrieval)/i) {
+            my $task_type = $1;
+            makeTaskTextFiles($dbh, $sessionID, $task_type, "$bids_scan_directory/$niftiFileName");
         }
 
         write_BIDS_JSON_file($json_fullpath, $header_hash);
@@ -525,6 +543,8 @@ sub makeNIIAndHeader {
         ### add an entry in the sub-xxx_scans.tsv file with age
         my $nifti_full_path = "$bids_scan_directory/$niftiFileName";
         add_entry_in_scans_tsv_bids_file($file_list{$row}, $destDir, $nifti_full_path, $dbh);
+
+        return \%phasediff_seriesnb_hash;
     }
 }
 
@@ -1359,6 +1379,68 @@ sub create_BIDS_magnitude_files {
 
         write_BIDS_JSON_file($json_fullpath, $header_hash);
     }
+}
+
+sub makeTaskTextFiles {
+    my ($dbh, $sessionID, $task_type, $niftiFullPath) = @_;
+
+    ( my $query = <<QUERY ) =~ s/\n/ /g;
+SELECT
+  f.FileID,
+  File,
+  mst.Scan_type
+FROM files f
+JOIN mri_scan_type mst ON (mst.ID=f.AcquisitionProtocolID)
+
+WHERE FileType = "txt" AND mst.Scan_type = ? AND SessionID = ?
+QUERY
+
+    my $scan_type = "task-$task_type" . "-events";
+    my $sth = $dbh->prepare($query);
+    $sth->execute($scan_type, $sessionID);
+
+    my %event_file_list;
+
+    while ( my $rowhr = $sth->fetchrow_hashref()) {
+        $event_file_list{'fileID'}     = $rowhr->{'FileID'};
+        $event_file_list{'file'}       = $rowhr->{'File'};
+        $event_file_list{'scanType'}   = $rowhr->{'Scan_type'};
+    }
+
+    return unless (keys %event_file_list);
+
+    my $textFileFullPath = $niftiFullPath;
+    $textFileFullPath =~ s/\.nii(\.gz)?/_events.txt/g;
+
+    my $cmd = "mv $dataDir/$event_file_list{'file'} $textFileFullPath";
+    print $cmd . '\n';
+    system($cmd);
+}
+
+sub updateFieldmapIntendedFor {
+    my ($file_hash, $phasediff_list) = @_;
+
+    my @list_of_fieldmap_seriesnb = keys %$phasediff_list;
+    for my $row (keys %$file_hash) {
+        my $series_number = $file_hash->{$row}{'seriesNumber'};
+        my $nii_filename  = $file_hash->{$row}{'niiFileName'};
+
+        my $closest_fmap_seriesnb = getClosestNumberInArray(
+            $series_number, \@list_of_fieldmap_seriesnb
+        );
+
+        push $phasediff_list->{$closest_fmap_seriesnb}{'IntendedForList'}, $nii_filename;
+    }
+
+    ## modify JSON file to add the IntendedFor key
+}
+
+sub getClosestNumberInArray {
+    my ($val, $arr) = @_;
+
+    my @test = sort { abs($a - $val) <=> abs($b - $val)} @$arr;
+
+    return $test[0];
 }
 
 __END__
