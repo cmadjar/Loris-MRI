@@ -103,7 +103,7 @@ Alzheimer’s Disease) is a double-blind, placebo controlled, randomized trial o
 naproxen sodium 220 mg or placebo twice daily.
 
 Available data includes structural and functional Magnetic Resonance Imaging (MRI),
-and basic demographics (age at MRI, Gender, Study language, Handedness).
+and basic demographics (age at MRI, Sex, Study language, Handedness).
 
 More details on the study description can be found at
 https://conp.ca/wp-content/uploads/2019/04/PREVENT-AD-short-description.pdf
@@ -117,6 +117,7 @@ my $BIDSIGNORE = <<TEXT;
 *MP2RAGE*.json
 *UNIT1*.nii.gz
 *UNIT1*.json
+*events.txt
 TEXT
 
 
@@ -473,7 +474,9 @@ sub makeNIIAndHeader {
                   . "in the bids_mri_scan_type_rel table for that scan type.\n";
             next;
         }
-        $file_list{$row}{'BIDSScanType'} = $bids_categories_hash->{'BIDSScanType'};
+        $file_list{$row}{'BIDSScanType'}     = $bids_categories_hash->{'BIDSScanType'};
+        $file_list{$row}{'BIDSCategoryName'} = $bids_categories_hash->{'BIDSCategoryName'};
+
 
         ### skip if BIDS scan type contains magnitude since they will be created
         ### when taking care of the phasediff fieldmap
@@ -1430,23 +1433,26 @@ sub updateFieldmapIntendedFor {
         my $series_number  = $file_hash->{$row}{'seriesNumber'};
         my $nii_filename   = $file_hash->{$row}{'niiFileName'};
         my $bids_scan_type = $file_hash->{$row}{'BIDSScanType'};
+        my $bids_category  = $file_hash->{$row}{'BIDSCategoryName'};
+        my $visit_label    = $file_hash->{$row}{'visitLabel'};
 
-        next unless $bids_scan_type =~ m/(asl)|(bold)|(dwi)/;
+        next unless $bids_scan_type && $bids_scan_type =~ m/(asl)|(bold)|(dwi)/;
 
         my $closest_fmap_seriesnb = getClosestNumberInArray(
             $series_number, \@list_of_fieldmap_seriesnb
         );
 
-        push @{ $phasediff_list->{$closest_fmap_seriesnb}{'IntendedForList'} }, $nii_filename;
+        push @{ $phasediff_list->{$closest_fmap_seriesnb}{'IntendedForList'} }, "ses-$visit_label/$bids_category/$nii_filename";
     }
 
     ## modify JSON file to add the IntendedFor key
     for my $row (keys %$phasediff_list) {
         my $json_file    = $phasediff_list->{$row}{'jsonFilePath'};
-        my @intended_for = @{ $phasediff_list->{$row}{'IntendedForList'} };
-
-        # update the JSON file
-        updateJSONfileWithIntendedFor($json_file, \@intended_for);
+        if ($phasediff_list->{$row}{'IntendedForList'}) {
+            my @intended_for = @{ $phasediff_list->{$row}{'IntendedForList'} };
+            # update the JSON file
+            updateJSONfileWithIntendedFor($json_file, \@intended_for);
+        }
     }
 }
 
@@ -1461,7 +1467,7 @@ sub updateT1IntendedFor {
         # only one scout so T1s are intended for all series
         for my $t1_seriesnb (keys %$t1_hash) {
             my $t1_json_path = $t1_hash->{$t1_seriesnb};
-            my $tmp_hash = $nii_files_hash;
+            my $tmp_hash     = { %$nii_files_hash };
             delete($tmp_hash->{$t1_seriesnb});    # remove the T1 entry from the list of nii
             my @intendedFor = values %$tmp_hash;  # grep the list of nii files associated with the t1
             updateJSONfileWithIntendedFor($t1_json_path, \@intendedFor);
@@ -1469,7 +1475,24 @@ sub updateT1IntendedFor {
 
     } elsif (scalar @$scout_seriesnb_arr > 1) {
         # then spit the intended for based on the SCOUTs
-
+        for (my $idx = 0; $idx < scalar @$scout_seriesnb_arr; $idx++) {
+            my $min_seriesnb = @$scout_seriesnb_arr[$idx];
+            my $max_seriesnb = ($idx + 1 < scalar @$scout_seriesnb_arr) ? @$scout_seriesnb_arr[$idx + 1] : 100;
+            my $nii_tmp_hash = { %$nii_files_hash };
+            for my $series_nb_key (keys %$nii_tmp_hash) {
+                unless ($min_seriesnb < $series_nb_key && $series_nb_key < $max_seriesnb) {
+                    delete($nii_tmp_hash->{$series_nb_key});
+                }
+            }
+            my $t1_tmp_hash = { %$t1_hash };
+            for my $t1_seriesnb (keys %$t1_tmp_hash) {
+                next unless ($min_seriesnb < $t1_seriesnb && $t1_seriesnb < $max_seriesnb);
+                my $t1_json_path = $t1_hash->{$t1_seriesnb};
+                delete($nii_tmp_hash->{$t1_seriesnb});    # remove the T1 entry from the list of nii
+                my @intendedFor = values %$nii_tmp_hash;  # grep the list of nii files associated with the t1
+                updateJSONfileWithIntendedFor($t1_json_path, \@intendedFor);
+            }
+        }
     }
 
 }
@@ -1538,9 +1561,11 @@ sub grepListOfNiiFilesOrganizedBySeriesNumber {
         # if it is a magnitude file, then skip it since no JSON associated in hash
         next unless ($files_hash->{$rowid}{'BIDSScanType'});
         next if ($files_hash->{$rowid}{'BIDSScanType'} eq "magnitude");
-        my $series_nb = $files_hash->{$rowid}{'seriesNumber'};
-        my $nii_file  = $files_hash->{$rowid}{'niiFileName'};
-        $nii_files_hash{$series_nb} = $nii_file;
+        my $series_nb     = $files_hash->{$rowid}{'seriesNumber'};
+        my $nii_file      = $files_hash->{$rowid}{'niiFileName'};
+        my $bids_category = $files_hash->{$rowid}{'BIDSCategoryName'};
+        my $visit_label   = $files_hash->{$rowid}{'visitLabel'};
+        $nii_files_hash{$series_nb} = "ses-$visit_label/$bids_category/$nii_file";
     }
 
     return \%nii_files_hash;
