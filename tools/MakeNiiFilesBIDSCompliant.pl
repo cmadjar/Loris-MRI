@@ -330,8 +330,12 @@ while ( my $rowhr = $sth->fetchrow_hashref()) {
     # Make NIfTI files and JSON headers out of those MINC
     my $phasediff_list = &makeNIIAndHeader( $dbh, %file_list);
 
-
+    # update the IntendedFor field for fieldmap phasediff JSON files
     &updateFieldmapIntendedFor(\%file_list, $phasediff_list);
+
+    # update the IntendedFor field for T1 JSON file based on when
+    # SCOUTs were acquired in the tarchive_series table
+    &updateT1IntendedFor($dbh, \%file_list, $givenTarchiveID);
 
     if (defined($tarchiveID)) {
         print "\nFinished processing TarchiveID $givenTarchiveID\n";
@@ -506,7 +510,7 @@ sub makeNIIAndHeader {
             $niftiFileName, $bids_scan_directory
         );
         $file_list{$row}{'niiFileName'}  = "$niftiFileName.gz";
-        $file_list{$row}{'jsonFileName'} = $json_filename;
+        $file_list{$row}{'jsonFilePath'} = $json_fullpath;
 
         #  determine JSON information from MINC files header;
         my ($header_hash) = gather_parameters_for_BIDS_JSON_file(
@@ -518,8 +522,8 @@ sub makeNIIAndHeader {
         if ($bids_scan_type =~ m/phasediff/i) {
             #### hardcoded for open PREVENT-AD since always the same for
             #### all datasets...
-            my $series_number            = $file_list{$row}{'seriesNumber'};
-            $phasediff_seriesnb_hash{$series_number}{'jsonFilePath'}    = $json_fullpath;
+            my $series_number = $file_list{$row}{'seriesNumber'};
+            $phasediff_seriesnb_hash{$series_number}{'jsonFilePath'} = $json_fullpath;
             delete($header_hash->{'EchoTime'});
             $header_hash->{'EchoTime1'} = 0.00492;
             $header_hash->{'EchoTime2'} = 0.00738;
@@ -1441,20 +1445,107 @@ sub updateFieldmapIntendedFor {
         my $json_file    = $phasediff_list->{$row}{'jsonFilePath'};
         my @intended_for = @{ $phasediff_list->{$row}{'IntendedForList'} };
 
-        # read the JSON file
-        my $json_content = do {
-            open(FILE, "<", $json_file) or die "Can not open $json_file: $!\n";
-            local $/;
-            <FILE>
-        };
-        close FILE;
-
-        my $json_obj  = new JSON;
-        my %json_data = %{ $json_obj->decode($json_content) };
-        $json_data{'IntendedFor'} = \@intended_for;
-        write_BIDS_JSON_file($json_file, \%json_data);
+        # update the JSON file
+        updateJSONfileWithIntendedFor($json_file, \@intended_for);
     }
 }
+
+sub updateT1IntendedFor {
+    my ($dbh, $files_hash, $tarchiveID) = @_;
+
+    my $scout_seriesnb_arr = grepAAHScoutSeriesNumbers($dbh, $tarchiveID);
+    my $t1_hash            = grepListOfT1($files_hash);
+    my $nii_files_hash     = grepListOfNiiFilesOrganizedBySeriesNumber($files_hash);
+
+    if (scalar @$scout_seriesnb_arr == 1) {
+        # only one scout so T1s are intended for all series
+        for my $t1_seriesnb (keys %$t1_hash) {
+            my $t1_json_path = $t1_hash->{$t1_seriesnb};
+            my $tmp_hash = $nii_files_hash;
+            delete($tmp_hash->{$t1_seriesnb});    # remove the T1 entry from the list of nii
+            my @intendedFor = values %$tmp_hash;  # grep the list of nii files associated with the t1
+            updateJSONfileWithIntendedFor($t1_json_path, \@intendedFor);
+        }
+
+    } elsif (scalar @$scout_seriesnb_arr > 1) {
+        # then spit the intended for based on the SCOUTs
+
+    }
+
+}
+
+sub updateJSONfileWithIntendedFor {
+    my ($json_filepath, $intendedFor) = @_;
+
+    # read the JSON file
+    my $json_content = do {
+        open(FILE, "<", $json_filepath) or die "Can not open $json_filepath: $!\n";
+        local $/;
+        <FILE>
+    };
+    close FILE;
+
+    my $json_obj  = new JSON;
+    my %json_data = %{ $json_obj->decode($json_content) };
+    $json_data{'IntendedFor'} = $intendedFor;
+    write_BIDS_JSON_file($json_filepath, \%json_data);
+}
+
+sub grepAAHScoutSeriesNumbers {
+    my ($dbh, $tarchiveID) = @_;
+
+    (my $query = <<QUERY ) =~ s/\n/ /g;
+SELECT DISTINCT
+  SeriesNumber
+FROM
+  tarchive_series
+WHERE
+  TarchiveID = ? AND SeriesDescription='AAHScout'
+QUERY
+
+    my $sth = $dbh->prepare($query);
+    $sth->execute($tarchiveID);
+
+    my @scout_seriesnb_arr;
+    while (my $rowhr = $sth->fetchrow_hashref()) {
+        push(@scout_seriesnb_arr, $rowhr->{'SeriesNumber'});
+    }
+
+    return \@scout_seriesnb_arr;
+}
+
+sub grepListOfT1 {
+    my ($files_hash) = @_;
+
+    my %t1_hash;
+    for my $rowid (%$files_hash) {
+        # if it is a magnitude file, then BIDSScanType key is not present so skip it
+        next unless ($files_hash->{$rowid}{'BIDSScanType'});
+        next unless ($files_hash->{$rowid}{'BIDSScanType'} eq "T1w"); # skip unless T1
+        my $t1_series_nb = $files_hash->{$rowid}{'seriesNumber'};
+        my $t1_json_file = $files_hash->{$rowid}{'jsonFilePath'};
+        $t1_hash{$t1_series_nb} = $t1_json_file;
+    }
+
+    return \%t1_hash;
+}
+
+sub grepListOfNiiFilesOrganizedBySeriesNumber {
+    my ($files_hash) = @_;
+
+    my %nii_files_hash;
+    for my $rowid (%$files_hash) {
+        # if it is a magnitude file, then skip it since no JSON associated in hash
+        next unless ($files_hash->{$rowid}{'BIDSScanType'});
+        next if ($files_hash->{$rowid}{'BIDSScanType'} eq "magnitude");
+        my $series_nb = $files_hash->{$rowid}{'seriesNumber'};
+        my $nii_file  = $files_hash->{$rowid}{'niiFileName'};
+        $nii_files_hash{$series_nb} = $nii_file;
+    }
+
+    return \%nii_files_hash;
+}
+
 
 sub getClosestNumberInArray {
     my ($val, $arr) = @_;
