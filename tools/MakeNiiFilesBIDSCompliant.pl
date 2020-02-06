@@ -329,12 +329,13 @@ while ( my $rowhr = $sth->fetchrow_hashref()) {
 
     # Make NIfTI files and JSON headers out of those MINC
     my $phasediff_list = &makeNIIAndHeader( $dbh, %file_list);
+
+
+    &updateFieldmapIntendedFor(\%file_list, $phasediff_list);
+
     if (defined($tarchiveID)) {
         print "\nFinished processing TarchiveID $givenTarchiveID\n";
     }
-
-    #
-    &updateFieldmapIntendedFor(\%file_list, $phasediff_list);
 }
 
 if (!defined($tarchiveID)) {
@@ -444,6 +445,8 @@ INPUTS:
 sub makeNIIAndHeader {
     
     my ( $dbh, %file_list) = @_;
+
+    my %phasediff_seriesnb_hash;
     foreach my $row (keys %file_list) {
         my $fileID         = $file_list{$row}{'fileID'};
         my $minc           = $file_list{$row}{'file'};
@@ -466,6 +469,7 @@ sub makeNIIAndHeader {
                   . "in the bids_mri_scan_type_rel table for that scan type.\n";
             next;
         }
+        $file_list{$row}{'BIDSScanType'} = $bids_categories_hash->{'BIDSScanType'};
 
         ### skip if BIDS scan type contains magnitude since they will be created
         ### when taking care of the phasediff fieldmap
@@ -511,13 +515,11 @@ sub makeNIIAndHeader {
 
         # for phasediff files, replace EchoTime by EchoTime1 and EchoTime2
         # and create the magnitude files associated with it
-        my %phasediff_seriesnb_hash;
         if ($bids_scan_type =~ m/phasediff/i) {
             #### hardcoded for open PREVENT-AD since always the same for
             #### all datasets...
-            my $series_number = $file_list{$row}{'seriesNumber'};
-            $phasediff_seriesnb_hash{$series_number}{'jsonFileName'}    = $json_filename;
-            $phasediff_seriesnb_hash{$series_number}{'IntendedForList'} = ();
+            my $series_number            = $file_list{$row}{'seriesNumber'};
+            $phasediff_seriesnb_hash{$series_number}{'jsonFilePath'}    = $json_fullpath;
             delete($header_hash->{'EchoTime'});
             $header_hash->{'EchoTime1'} = 0.00492;
             $header_hash->{'EchoTime2'} = 0.00738;
@@ -543,9 +545,9 @@ sub makeNIIAndHeader {
         ### add an entry in the sub-xxx_scans.tsv file with age
         my $nifti_full_path = "$bids_scan_directory/$niftiFileName";
         add_entry_in_scans_tsv_bids_file($file_list{$row}, $destDir, $nifti_full_path, $dbh);
-
-        return \%phasediff_seriesnb_hash;
     }
+
+    return \%phasediff_seriesnb_hash;
 }
 
 =pod
@@ -1412,8 +1414,7 @@ QUERY
     my $textFileFullPath = $niftiFullPath;
     $textFileFullPath =~ s/\.nii(\.gz)?/_events.txt/g;
 
-    my $cmd = "mv $dataDir/$event_file_list{'file'} $textFileFullPath";
-    print $cmd . '\n';
+    my $cmd = "cp $dataDir/$event_file_list{'file'} $textFileFullPath";
     system($cmd);
 }
 
@@ -1422,17 +1423,37 @@ sub updateFieldmapIntendedFor {
 
     my @list_of_fieldmap_seriesnb = keys %$phasediff_list;
     for my $row (keys %$file_hash) {
-        my $series_number = $file_hash->{$row}{'seriesNumber'};
-        my $nii_filename  = $file_hash->{$row}{'niiFileName'};
+        my $series_number  = $file_hash->{$row}{'seriesNumber'};
+        my $nii_filename   = $file_hash->{$row}{'niiFileName'};
+        my $bids_scan_type = $file_hash->{$row}{'BIDSScanType'};
+
+        next unless $bids_scan_type =~ m/(asl)|(bold)|(dwi)/;
 
         my $closest_fmap_seriesnb = getClosestNumberInArray(
             $series_number, \@list_of_fieldmap_seriesnb
         );
 
-        push $phasediff_list->{$closest_fmap_seriesnb}{'IntendedForList'}, $nii_filename;
+        push @{ $phasediff_list->{$closest_fmap_seriesnb}{'IntendedForList'} }, $nii_filename;
     }
 
     ## modify JSON file to add the IntendedFor key
+    for my $row (keys %$phasediff_list) {
+        my $json_file    = $phasediff_list->{$row}{'jsonFilePath'};
+        my @intended_for = @{ $phasediff_list->{$row}{'IntendedForList'} };
+
+        # read the JSON file
+        my $json_content = do {
+            open(FILE, "<", $json_file) or die "Can not open $json_file: $!\n";
+            local $/;
+            <FILE>
+        };
+        close FILE;
+
+        my $json_obj  = new JSON;
+        my %json_data = %{ $json_obj->decode($json_content) };
+        $json_data{'IntendedFor'} = \@intended_for;
+        write_BIDS_JSON_file($json_file, \%json_data);
+    }
 }
 
 sub getClosestNumberInArray {
