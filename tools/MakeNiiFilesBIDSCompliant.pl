@@ -105,6 +105,15 @@ naproxen sodium 220 mg or placebo twice daily.
 Available data includes structural and functional Magnetic Resonance Imaging (MRI),
 and basic demographics (age at MRI, Sex, Study language, Handedness).
 
+A few important notes regarding the dataset:
+  - both the Siemens 12-channel and 32-channel coils were used to acquire the images
+    present in this dataset. This information is available in the JSON file of
+    each image.
+  - some sessions included a pause for the participant. In order to clarify which
+    T1w image should be used with which sequence, we added an 'IntendedFor' field
+    in all T1w JSON file so that the correct T1w can be used for co-registration
+    with the other sequences.
+
 More details on the study description can be found at
 https://conp.ca/wp-content/uploads/2019/04/PREVENT-AD-short-description.pdf
 TEXT
