@@ -107,7 +107,7 @@ and basic demographics (age at MRI, Sex, Study language, Handedness).
 
 A few important notes regarding the dataset:
   - both the Siemens 12-channel and 32-channel coils were used to acquire the images
-    present in this dataset. This information is available in the JSON file of
+    in this dataset. This information is available in the JSON file of
     each image.
   - some sessions included a pause for the participant. In order to clarify which
     T1w image should be used with which sequence, we added an 'IntendedFor' field
@@ -853,7 +853,7 @@ sub create_participants_tsv_and_json_file {
             'Levels'      => {'Male' => 'Male', 'Female' => 'Female'}
         },
         'test_language' => {
-            'Description' => 'language used for testing',
+            'Description' => 'test issued in (language)',
             'Levels'      => {'French' => 'French', 'English' => 'English'}
         },
         'handedness_score' => {
@@ -920,7 +920,7 @@ sub create_scans_tsv_and_json_file {
     # create participants.json file
     my %header_dict = (
         'candidate_age_at_acquisition' => {
-            'Description' => 'candidate age in months at the time of the acquisition',
+            'Description' => 'candidate age in months at the time of acquisition',
             'Units'       => 'Months'
         }
     );
