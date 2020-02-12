@@ -117,16 +117,10 @@ A few important notes regarding the dataset:
 More details on the study description can be found at
 https://conp.ca/wp-content/uploads/2019/04/PREVENT-AD-short-description.pdf
 TEXT
-my $BIDSIGNORE = <<TEXT;
-*asl*.nii.gz
-*asl*.json
-*echo*T2star*.nii.gz
-*echo*T2star*.json
-*MP2RAGE*.nii.gz
-*MP2RAGE*.json
-*UNIT1*.nii.gz
-*UNIT1*.json
-*events.txt
+my $BIDS_VALIDATOR_CONFIG = <<TEXT;
+{
+  "ignore": [1, 25, 38, 39, 97, 102]
+}
 TEXT
 
 
@@ -275,28 +269,39 @@ my %dataset_desc_hash = (
     'HowToAcknowledge'      => $ACKNOWLEDGMENTS,
     'LORISReleaseVersion'   => $MRIVersion
 );
-write_BIDS_JSON_file($dataDescFile, \%dataset_desc_hash);
+unless (-e $dataDescFile) {
+    write_BIDS_JSON_file($dataDescFile, \%dataset_desc_hash);
+    registerBidsFileInDatabase($dataDescFile, 'study', 'json', undef);
+}
 
 # Create the README BIDS file
 my $readmeFile = $destDir . "/README";
 print "\n*******Creating the README file $readmeFile *******\n";
-open README, ">$readmeFile" or die "Can not write file $readmeFile: $!\n";
-README->autoflush(1);
-select(README);
-select(STDOUT);
-print README "$README\n";
-close README;
+unless (-e $readmeFile) {
+    open README, ">$readmeFile" or die "Can not write file $readmeFile: $!\n";
+    README->autoflush(1);
+    select(README);
+    select(STDOUT);
+    print README "$README\n";
+    close README;
+    registerBidsFileInDatabase($readmeFile, 'study', 'README', undef);
+}
 
 # Create a .gitignore file for BIDS validator to ignore file types that are not
 # yet part of the BIDS specification
-my $bidsignore = $destDir . "/.bidsignore";
-print "\n*******Creating the .bidsignore file $bidsignore *******\n";
-open BIDSIGNORE, ">$bidsignore" or die "Can not write file $bidsignore: $!\n";
-BIDSIGNORE->autoflush(1);
-select(BIDSIGNORE);
-select(STDOUT);
-print BIDSIGNORE "$BIDSIGNORE\n";
-close BIDSIGNORE;
+my $bids_validator_config_file = $destDir . "/.bids-validator-config.json";
+print "\n*******Creating the .bids-validator-config.json file $bids_validator_config_file *******\n";
+unless (-e $bids_validator_config_file) {
+    open BIDSIGNORE, ">$bids_validator_config_file"
+        or die "Can not write file $bids_validator_config_file: $!\n";
+    BIDSIGNORE->autoflush(1);
+    select(BIDSIGNORE);
+    select(STDOUT);
+    print BIDSIGNORE "$BIDS_VALIDATOR_CONFIG\n";
+    close BIDSIGNORE;
+    registerBidsFileInDatabase($bids_validator_config_file, 'study', 'json', undef);
+}
+
 
 
 my ($query, $sth);
@@ -510,7 +515,7 @@ sub makeNIIAndHeader {
         print "\n*******Currently processing $minc_full_path********\n";
         #  mnc2nii command then gzip it because BIDS expects it this way
         my $success = create_nifti_bids_file(
-            $dataDir, $minc, $bids_scan_directory, $niftiFileName
+            $dataDir, $minc, $bids_scan_directory, $niftiFileName, $fileID
         );
         unless ($success) {
             print "WARNING: mnc2nii conversion failed for $minc.\n";
@@ -522,6 +527,7 @@ sub makeNIIAndHeader {
             $niftiFileName, $bids_scan_directory
         );
         $file_list{$row}{'niiFileName'}  = "$niftiFileName.gz";
+        $file_list{$row}{'niiFilePath'}  = "$bids_scan_directory/$niftiFileName.gz";
         $file_list{$row}{'jsonFilePath'} = $json_fullpath;
 
         #  determine JSON information from MINC files header;
@@ -551,7 +557,10 @@ sub makeNIIAndHeader {
             makeTaskTextFiles($dbh, $sessionID, $task_type, "$bids_scan_directory/$niftiFileName");
         }
 
-        write_BIDS_JSON_file($json_fullpath, $header_hash);
+        unless (-e $json_fullpath) {
+            write_BIDS_JSON_file($json_fullpath, $header_hash);
+            registerBidsFileInDatabase($json_fullpath, 'image', 'json', $fileID);
+        }
 
         # DWI files need 2 extra special files; .bval and .bvec
         if ($bids_scan_type eq 'dwi') {
@@ -588,7 +597,9 @@ INPUTS:
 =cut
 
 sub fetchBVAL_BVEC {
-    my ( $dbh, $nifti, $bvFile, $fileID, $destDirFinal, @headerNameBVDBArr ) = @_;
+    my ( $dbh, $nifti, $bvFile, $filetype, $fileID, $destDirFinal, @headerNameBVDBArr) = @_;
+
+    return if -e "$destDirFinal/$bvFile";
 
     my ( $headerName, $headerNameDB, $headerVal);
 
@@ -634,6 +645,8 @@ QUERY
     }
 
     close BVINFO;
+
+    registerBidsFileInDatabase("$destDirFinal/$bvFile", 'image', $filetype, $fileID);
 }
 
 
@@ -668,13 +681,17 @@ QUERY
 }
 
 sub create_nifti_bids_file {
-    my ($data_dir, $minc_path, $bids_dir, $nifti_name) = @_;
+    my ($data_dir, $minc_path, $bids_dir, $nifti_name, $fileID) = @_;
+
+    return 1 if -e "$bids_dir/$nifti_name.gz";
 
     my $cmd = "mnc2nii -nii -quiet $data_dir/$minc_path $bids_dir/$nifti_name";
     system($cmd);
 
     my $gz_cmd = "gzip -f $bids_dir/$nifti_name";
     system($gz_cmd);
+
+    registerBidsFileInDatabase("$bids_dir/$nifti_name.gz", 'image', 'nii', $fileID);
 
     return -e "$bids_dir/$nifti_name.gz";
 }
@@ -789,6 +806,8 @@ sub add_entry_in_participants_bids_file {
     if (! -e $participants_tsv_file) {
         # create the tsv and json file if they do not exist
         create_participants_tsv_and_json_file($participants_tsv_file, $participants_json_file);
+        registerBidsFileInDatabase($participants_tsv_file,  'study', 'tsv',  undef);
+        registerBidsFileInDatabase($participants_json_file, 'study', 'json', undef);
     } else {
         # read participants.tsv file and check if a row is already present for
         # that subject
@@ -874,8 +893,6 @@ sub create_participants_tsv_and_json_file {
 sub add_entry_in_scans_tsv_bids_file {
     my ($minc_file_hash, $bids_root_dir, $nifti_full_path, $dbh) = @_;
 
-
-
     my $bids_sub_id = "sub-$minc_file_hash->{'candID'}";
     my $bids_ses_id = "ses-$minc_file_hash->{'visitLabel'}";
 
@@ -890,6 +907,8 @@ sub add_entry_in_scans_tsv_bids_file {
     if (! -e $bids_scans_tsv_file) {
         # create the tsv and json file if they do not exist
         create_scans_tsv_and_json_file($bids_scans_tsv_file, $bids_scans_json_file);
+        registerBidsFileInDatabase($bids_scans_tsv_file,  'session', 'tsv',  undef);
+        registerBidsFileInDatabase($bids_scans_json_file, 'session', 'json', undef);
     } else {
         # read participants.tsv file and check if a row is already present for
         # that subject
@@ -1001,7 +1020,7 @@ sub create_DWI_bval_bvec_files {
     my $bvalFile = $nifti_file_name;
     $bvalFile    =~ s/nii/bval/g;
     &fetchBVAL_BVEC(
-        $dbh,    $nifti_file_name,     $bvalFile,
+        $dbh,    $nifti_file_name,     $bvalFile,            'bval',
         $fileID, $bids_scan_directory, @headerNameBVALDBArr
     );
 
@@ -1009,7 +1028,7 @@ sub create_DWI_bval_bvec_files {
     my $bvecFile = $nifti_file_name;
     $bvecFile    =~ s/nii/bvec/g;
     &fetchBVAL_BVEC(
-        $dbh,    $nifti_file_name,     $bvecFile,
+        $dbh,    $nifti_file_name,     $bvecFile,            'bvec',
         $fileID, $bids_scan_directory, @headerNameBVECDBArr
     );
 }
@@ -1346,6 +1365,7 @@ sub create_BIDS_magnitude_files {
         my $minc           = $magnitude_files_hash->{$row}{'file'};
         my $acqProtocolID  = $magnitude_files_hash->{$row}{'AcquisitionProtocolID'};
         my $echo_nb        = $magnitude_files_hash->{$row}{'echoNumber'};
+        my $fileID         = $magnitude_files_hash->{$row}{'fileID'};
 
         ### check if the MINC file can be found on the file system
         my $minc_full_path = "$dataDir/$minc";
@@ -1379,7 +1399,7 @@ sub create_BIDS_magnitude_files {
         print "\n*******Currently processing $minc_full_path********\n";
         #  mnc2nii command then gzip it because BIDS expects it this way
         my $success = create_nifti_bids_file(
-            $dataDir, $minc, $bids_scan_directory, $niftiFileName
+            $dataDir, $minc, $bids_scan_directory, $niftiFileName, $fileID
         );
         unless ($success) {
             print "WARNING: mnc2nii conversion failed for $minc.\n";
@@ -1395,7 +1415,10 @@ sub create_BIDS_magnitude_files {
             $minc_full_path, $json_filename, $bids_categories_hash
         );
 
-        write_BIDS_JSON_file($json_fullpath, $header_hash);
+        unless (-e $json_fullpath) {
+            write_BIDS_JSON_file($json_fullpath, $header_hash);
+            registerBidsFileInDatabase($json_fullpath, 'image', 'json', $fileID);
+        }
     }
 }
 
@@ -1404,7 +1427,7 @@ sub makeTaskTextFiles {
 
     ( my $query = <<QUERY ) =~ s/\n/ /g;
 SELECT
-  f.FileID,
+  FileID,
   File,
   mst.Scan_type
 FROM files f
@@ -1430,8 +1453,12 @@ QUERY
     my $textFileFullPath = $niftiFullPath;
     $textFileFullPath =~ s/\.nii(\.gz)?/_events.txt/g;
 
-    my $cmd = "cp $dataDir/$event_file_list{'file'} $textFileFullPath";
-    system($cmd);
+    unless (-e $textFileFullPath) {
+        my $cmd = "cp $dataDir/$event_file_list{'file'} $textFileFullPath";
+        system($cmd);
+        registerBidsFileInDatabase($textFileFullPath, 'image', 'txt', $event_file_list{'fileID'});
+    }
+
 }
 
 sub updateFieldmapIntendedFor {
@@ -1587,6 +1614,29 @@ sub getClosestNumberInArray {
     my @test = sort { abs($a - $val) <=> abs($b - $val)} @$arr;
 
     return $test[0];
+}
+
+
+sub registerBidsFileInDatabase {
+    my ($filepath, $filelevel, $filetype, $fileid) = @_;
+
+    return unless (-e $filepath);
+
+    $filepath =~ s/$dataDir\///g;
+
+    (my $query = <<QUERY ) =~ s/\n/ /g;
+INSERT INTO bids_export_files SET
+    FileID        = ?,
+    BIDSFileLevel = ?,
+    FileType      = ?,
+    FilePath      = ?
+QUERY
+
+    # Prepare and execute query
+    my $sth = $dbh->prepare($query);
+    $sth->execute($fileid, $filelevel, $filetype, $filepath);
+
+
 }
 
 __END__

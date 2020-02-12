@@ -347,3 +347,45 @@ INSERT INTO bids_mri_scan_type_rel
     (SELECT BIDSScanTypeID FROM bids_scan_type WHERE BIDSSCanType='dwi'),
     NULL
   );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE TABLE `bids_export_level_types` (
+  `BIDSFileLevel` varchar(12)  NOT NULL,
+  `Description`   varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`BIDSFileLevel`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+INSERT INTO `bids_export_level_types` (BIDSFileLevel, Description) VALUES
+  ('image',   'image-level file'  ),
+  ('session', 'session-level file'),
+  ('study',   'study-level file'  );
+
+
+CREATE TABLE `bids_export_files` (
+  `BIDSExportedFileID`        int(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `FileID`                    int(10) UNSIGNED DEFAULT NULL,
+  `BIDSFileLevel`             varchar(12)      NOT NULL,
+  `FileType`                  varchar(12)      NOT NULL,
+  `FilePath`                  varchar(255)     NOT NULL,
+  PRIMARY KEY (`BIDSExportedFileID`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+INSERT INTO `ImagingFileTypes` (type) VALUES
+  ('json'),
+  ('tsv'),
+  ('README'),
+  ('bval'),
+  ('bvec');
