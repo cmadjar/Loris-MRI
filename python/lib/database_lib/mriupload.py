@@ -42,3 +42,23 @@ class MriUpload:
         args = values + (upload_id,)
 
         self.db.update(query=query, args=args)
+
+    def create_mri_upload_dict(self, upload_id):
+        """
+        Returns a dictionary with all the fields present in the mri_upload table for the
+        provided UploadID.
+
+        :param upload_id: UploadID to use to query the mri_upload table
+         :type upload_id: int
+
+        :return: dictionary will all fields from the mri_upload table for the UploadID
+         :rtype: dict
+        """
+
+        query = 'SELECT * FROM mri_upload WHERE UploadID = %s'
+
+        results = self.db.pselect(query=query, args=upload_id)
+        if results:
+            return results[0]
+
+        return False
