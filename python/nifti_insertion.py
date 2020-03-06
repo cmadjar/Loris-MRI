@@ -325,20 +325,56 @@ def determine_study_information(config_file, json_path, upload_id, force, verbos
         }
 
     # -------------------------------------------------------------------------------
-    # determine PSC
+    # verify that PatientName or PatientID is filled
     # -------------------------------------------------------------------------------
+    field_with_site_info = config_obj.get_config('lookupCenterNameUsing')
+    if not study_dict[field_with_site_info]:
+        message = 'ERROR: empty ' + field_with_site_info + '. Please ensure that this value is' \
+                   ' provided either in the tarchive table or the JSON file.'
+        notification_obj.write_to_notification_spool(message=message, is_error='Y', is_verbose='N')
+        mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('0',))
+        print('\n' + message + '\n\n')
+        sys.exit(lib.exitcode.INVALID_IMPORT)
 
     # -------------------------------------------------------------------------------
-    # determine ScannerID
+    # determine PSC information
     # -------------------------------------------------------------------------------
+    site_dict = imaging_obj.determine_study_center(study_dict)
+    if 'error' in site_dict.keys():
+        message = site_dict['message']
+        notification_obj.write_to_notification_spool(message=message, is_error='Y', is_verbose='N')
+        print('\n' + message + '\n\n')
+        mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('0',))
+        sys.exit(site_dict['exit_code'])
+    message = '==> Found Center Name: ' + site_dict['CenterName'] + \
+                      ', Center ID: '   + str(site_dict['CenterID'])
+    notification_obj.write_to_notification_spool(message=message, is_error='N', is_verbose='Y')
+    if verbose:
+        print('\n' + message + '\n')
+    study_dict['CenterID']   = site_dict['CenterID']
+    study_dict['CenterName'] = site_dict['CenterName']
 
     # -------------------------------------------------------------------------------
-    # determine SubjectIDs
+    # grep scanner information based on what is in the DICOM headers
     # -------------------------------------------------------------------------------
+    scanner_dict = mri_scanner_obj.determine_scanner_information(study_dict, site_dict)
+    message = '===> Found Scanner ID: ' + str(scanner_dict['ScannerID'])
+    notification_obj.write_to_notification_spool(message=message, is_error='N', is_verbose='Y')
+    if verbose:
+        print('\n' + message + '\n')
+    study_dict['ScannerID'] = scanner_dict['ScannerID']
 
-    print(study_dict)
+    # ---------------------------------------------------------------------------------
+    # determine subject IDs based on DICOM headers and validate the IDs against the DB
+    # ---------------------------------------------------------------------------------
+    subject_id_dict = imaging_obj.determine_subject_ids(study_dict, study_dict['ScannerID'])
+    is_subject_info_valid = imaging_obj.validate_subject_ids(subject_id_dict)
+    study_dict['subject_id_dict']   = subject_id_dict
+    study_dict['CandMismatchError'] = is_subject_info_valid['CandMismatchError']
 
+    # get session information
 
+    return study_dict
 
 
 if __name__ == "__main__":

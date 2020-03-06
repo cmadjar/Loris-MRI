@@ -465,7 +465,7 @@ class Imaging:
         return {
             'error'    : True,
             'exit_code': lib.exitcode.SELECT_FAILURE,
-            'message'  : 'ERROR: No center found for this DICOM study'
+            'message'  : 'ERROR: No center found'
         }
 
     @staticmethod
