@@ -3,6 +3,7 @@
 import os
 import sys
 import csv
+import json
 import shutil
 import subprocess
 import filecmp
@@ -167,3 +168,23 @@ def compute_md5sum(file):
     md5sum = stdout.split()[0].decode('ASCII')
 
     return md5sum
+
+
+def load_json_file(json_file):
+
+    if not os.path.exists(json_file):
+        message = '\n\tERROR: json_file ' + json_file + ' not found\n'
+        print(message)
+        sys.exit(lib.exitcode.INVALID_PATH)
+
+    with open(json_file) as file_handle:
+        return json.load(file_handle)
+
+def validate_json_dict_keys(json_dict, keys_list):
+
+    missing_keys_list = []
+    for key in keys_list:
+        if key not in json_dict.keys():
+             missing_keys_list.append(key)
+
+    return missing_keys_list

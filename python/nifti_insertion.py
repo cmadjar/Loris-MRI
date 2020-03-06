@@ -6,6 +6,7 @@ import getopt
 import os
 import sys
 import re
+from dateutil.parser import parse
 
 import lib.exitcode
 import lib.utilities as utilities
@@ -102,7 +103,7 @@ def main():
     )
 
     # determine study information (PSC, Scanner, SubjectIDs, session...)
-    determine_study_information(config_file, json_path, upload_id, force, verbose)
+    study_dict = determine_study_information(config_file, json_path, upload_id, force, verbose)
 
     # identify protocol except if protocol already set when calling the script
 
@@ -251,9 +252,9 @@ def determine_study_information(config_file, json_path, upload_id, force, verbos
     # -------------------------------------------------------------------------------
     mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('1',))
 
-    # -----------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     # fetch the information associated to the UploadID in mri_upload
-    # -----------------------------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
     mri_upload_dict = mri_upload_obj.create_mri_upload_dict(upload_id)
     if not mri_upload_dict:
         message = 'ERROR: could not find any upload with UploadID ' + upload_id + '. ' \
@@ -266,7 +267,7 @@ def determine_study_information(config_file, json_path, upload_id, force, verbos
     # -------------------------------------------------------------------------------
     # verify that the DICOM archive was previously validated
     # -------------------------------------------------------------------------------
-    if not mri_upload_dict['isTarchiveValidated'] and not force:
+    if 'IsTarchiveValidated' not in mri_upload_dict.keys() and not force:
         message = 'ERROR: the DICOM archive associated to UploadID ' + upload_id + ' is not' \
                    ' marked as valid in the mri_upload table. Please run' \
                    ' dicom_archive_validation.py on that UploadID to identify the problem or use' \
@@ -275,6 +276,69 @@ def determine_study_information(config_file, json_path, upload_id, force, verbos
         mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('0',))
         print('\n' + message + '\n\n')
         sys.exit(lib.exitcode.SELECT_FAILURE)
+
+    # ---------------------------------------------------------------------------------------
+    # verify that there is a TarchiveID associated to the upload or a JSON file was provided
+    # ---------------------------------------------------------------------------------------
+    if 'TarchiveID' not in mri_upload_dict.keys() and not json_path:
+        message = 'ERROR: there is no DICOM archive associated to UploadID ' + upload_id + '. In' \
+                   ' order to proceed with the insertion process, you will need to provide a BIDS' \
+                   ' compatible JSON file with study, scanner and other image information.'
+        notification_obj.write_to_notification_spool(message=message, is_error='Y', is_verbose='N')
+        mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('0',))
+        print('\n' + message + '\n\n')
+        sys.exit(lib.exitcode.SELECT_FAILURE)
+
+    # -------------------------------------------------------------------------------
+    # read the JSON file
+    # -------------------------------------------------------------------------------
+    json_dict = utilities.load_json_file(json_path)
+
+    # ---------------------------------------------------------------------------------
+    # grep study information either from the associated tarchive or from the JSON file
+    # ---------------------------------------------------------------------------------
+    tarchive_id = mri_upload_dict['TarchiveID']
+    if tarchive_id:
+        tarchive_obj.create_tarchive_dict(tarchive_id=tarchive_id)
+        study_dict = tarchive_obj.tarchive_info_dict
+    else:
+        acq_date_time = json_dict['AcquisitionDateTime'] \
+            if 'AcquisitionDateTime' in json_dict.keys() else None
+        missing_key_list = utilities.validate_json_dict_keys(json_dict, [
+            'Manufacturer', 'ManufacturersModelName', 'DeviceSerialNumber', 'SoftwareVersions'
+        ])
+        if missing_key_list:
+            msg = 'ERROR: the following key(s) are missing in file ' + json_path + ': ' + \
+                   ', '.join(missing_key_list)
+            notification_obj.write_to_notification_spool(message=msg, is_error='Y', is_verbose='N')
+            mri_upload_obj.update_mri_upload(upload_id=upload_id, fields=('Inserting',), values=('0',))
+            print('\n' + msg + '\n\n')
+            sys.exit(lib.exitcode.INVALID_IMPORT)
+        study_dict = {
+            'PatientName' : json_dict['PatientName'] if 'PatientName' in json_dict.keys() else None,
+            'PatientID'   : json_dict['PatientID']   if 'PatientID'   in json_dict.keys() else None,
+            'DateAcquired': parse(acq_date_time).strftime('%Y-%m-%d'),
+            'ScannerManufacturer': json_dict['Manufacturer'],
+            'ScannerModel'       : json_dict['ManufacturersModelName'],
+            'ScannerSerialNumber': json_dict['DeviceSerialNumber'],
+            'ScannerSoftwareVersion': json_dict['SoftwareVersions']
+        }
+
+    # -------------------------------------------------------------------------------
+    # determine PSC
+    # -------------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------------
+    # determine ScannerID
+    # -------------------------------------------------------------------------------
+
+    # -------------------------------------------------------------------------------
+    # determine SubjectIDs
+    # -------------------------------------------------------------------------------
+
+    print(study_dict)
+
+
 
 
 if __name__ == "__main__":

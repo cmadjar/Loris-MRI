@@ -57,7 +57,7 @@ class MriUpload:
 
         query = 'SELECT * FROM mri_upload WHERE UploadID = %s'
 
-        results = self.db.pselect(query=query, args=upload_id)
+        results = self.db.pselect(query=query, args=(upload_id,))
         if results:
             return results[0]
 
