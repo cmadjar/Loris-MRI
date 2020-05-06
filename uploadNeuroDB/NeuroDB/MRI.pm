@@ -1405,20 +1405,23 @@ sub make_nii {
     my $file = $$fileref;
     my $minc  = $file->getFileDatum('File');
     my ($nifti, $bval_file, $bvec_file) = ($minc) x 3;
-    $nifti     =~ s/mnc$/nii/;
-    $bval_file =~ s/mnc$/bval/;
-    $bvec_file =~ s/mnc$/bvec/;
+    $nifti      =~ s/mnc$/nii/;
+    $bval_file  =~ s/mnc$/bval/;
+    $bvec_file  =~ s/mnc$/bvec/;
+    $gzip_nifti = "$nifti.gz";
 
     #  mnc2nii command
-    my $m2n_cmd = "mnc2nii -nii -quiet $data_dir/$minc $data_dir/$nifti";
+    my $m2n_cmd  = "mnc2nii -nii -quiet $data_dir/$minc $data_dir/$nifti";
+    my $gzip_cmd = "gzip $data_dir/$nifti"; # gzip the NIfTI output to save disk space
     system($m2n_cmd);
+    system($gzip_cmd); 
 
     # create complementary nifti files for DWI acquisitions
     my $bval_success = create_dwi_nifti_bval_file($fileref, "$data_dir/$bval_file");
     my $bvec_success = create_dwi_nifti_bvec_file($fileref, "$data_dir/$bvec_file");
 
     # update mri table (parameter_file table)
-    $file->setParameter('check_nii_filename', $nifti);
+    $file->setParameter('check_nii_filename', $gzip_nifti);
     $file->setParameter('check_bval_filename', $bval_file) if $bval_success;
     $file->setParameter('check_bvec_filename', $bvec_file) if $bvec_success;
 }
