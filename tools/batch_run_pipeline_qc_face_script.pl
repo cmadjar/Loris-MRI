@@ -45,7 +45,7 @@ Documentation: perldoc batch_run_pipeline_qc_face_script.pl
 HELP
 
 my $Usage = <<USAGE;
-usage: ./batch_run_pipeline_qc_deface_script.pl -profile prod < list_of_files.txt > log_batch_qc_deface.txt 2>&1 [options]
+usage: ./batch_run_pipeline_qc_deface_script.pl -profile prod -out_basedir <path_to_outdir> < list_of_files.txt > log_batch_qc_deface.txt 2>&1 [options]
        $0 -help to list options
 USAGE
 
