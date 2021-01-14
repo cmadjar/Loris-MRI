@@ -74,7 +74,7 @@ LOCK TABLES `bids_mri_scan_type_rel` WRITE;
 
 INSERT INTO `bids_mri_scan_type_rel` (`MRIScanTypeID`, `BIDSCategoryID`, `BIDSScanTypeSubCategoryID`, `BIDSScanTypeID`, `BIDSEchoNumber`)
 VALUES
-	(1015,1,NULL,7,NULL),
+	(1015,1,7,7,NULL),
 	(1018,3,NULL,5,NULL),
 	(1021,3,4,5,NULL),
 	(1024,3,5,5,NULL),
@@ -103,7 +103,7 @@ VALUES
 	(1099,1,6,7,7),
 	(1100,1,6,7,6),
 	(1101,1,6,7,1),
-	(1102,1,NULL,7,NULL),
+	(1102,1,6,7,NULL),
 	(1105,1,NULL,6,2),
 	(1107,1,6,7,4),
 	(1108,1,6,7,3),
