@@ -93,7 +93,8 @@ congruent with Open Science principles.
 
 This BIDS dataset is the collection of images present in the C-BIG Repository.
 
-More details on the study description can be found at
+For support, please contact cbig_support.mni@mcgill.ca. More details can also be found at:
+
 - https://cbigr-open.loris.ca
 - https://www.mcgill.ca/neuro/open-science
 TEXT
