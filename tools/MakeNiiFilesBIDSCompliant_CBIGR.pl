@@ -499,7 +499,64 @@ sub cleanup_list_files_from_CBIGR {
         delete $file_list{$key};
     }
 
+    determine_run_number(%file_list);
+
     return %file_list;
+}
+
+
+sub determine_run_number {
+    my (%file_list) = @_;
+
+    my @scan_types;
+    for my $hash_id (keys %file_list) {
+        my $scan_type = $file_list{$hash_id}{'lorisScanType'};
+        $scan_type =~ s/-defaced//g;
+        push(@scan_types, $scan_type) unless ( grep /^$scan_type$/, @scan_types);
+    }
+
+    for my $scan_type (@scan_types) {
+        my @list_of_scans_with_scan_type;
+
+        # grep the hash_id, scan type and series number information and
+        # organize that information into an array to be able to sort by series
+        # number and be able to determine the scan number
+        for my $hash_id (keys %file_list) {
+            next unless $file_list{$hash_id}{'lorisScanType'} =~ /^$scan_type(-defaced)?$/;
+            my $series_number = $file_list{$hash_id}{'seriesNumber'};
+            push (
+                @list_of_scans_with_scan_type,
+                {
+                    'seriesNumber' => $series_number,
+                    'hash_id'      => $hash_id,
+                    'scan_type'    => $file_list{$hash_id}{'lorisScanType'}
+                }
+            );
+        }
+
+        # sort the list of files per seriesNumber for the scan type
+        my @sorted_list_of_scans = sort { $a->{'seriesNumber'} <=> $b->{'seriesNumber'} } @list_of_scans_with_scan_type;
+
+        # determine the run number for each file
+        # note: T2star and Collins acquisition have the same scan type
+        # for the phase and the magnitude image, hence the different
+        # calculation for the run number
+        if ($scan_type =~ /^(GRE10echosDrCollins)|(T2star)/) {
+            my $i = 1;
+            for my $row (@sorted_list_of_scans) {
+                my $hash_id = $row->{'hash_id'};
+                $file_list{$hash_id}{'run_number'} = "00" . int($i);
+                $i += 0.5;
+            }
+        } else {
+            my $i = 1;
+            for my $row (@sorted_list_of_scans) {
+                my $hash_id = $row->{'hash_id'};
+                $file_list{$hash_id}{'run_number'} = "00$i";
+                $i++;
+            }
+        }
+    }
 }
 
 
@@ -561,7 +618,7 @@ sub makeNIIAndHeader {
 
         ### determine the BIDS NIfTI filename
         my $niftiFileName = determine_bids_nifti_file_name(
-            $minc, $prefix, $file_list{$row}, $bids_categories_hash
+            $minc, $prefix, $file_list{$row}, $bids_categories_hash, $file_list{$row}{'run_number'}
         );
 
         ### create the BIDS directory where the NIfTI file would go
@@ -769,15 +826,15 @@ sub determine_bids_nifti_file_name {
     my ($minc, $loris_prefix, $minc_file_hash, $bids_label_hash, $run_nb, $echo_nb) = @_;
 
     # grep LORIS information used to label the MINC file
-    my $candID = $minc_file_hash->{'candID'};
+    my $candID            = $minc_file_hash->{'candID'};
     my $loris_visit_label = $minc_file_hash->{'visitLabel'};
-    my $loris_scan_type = $bids_label_hash->{'Scan_type'};
+    my $loris_scan_type   = $bids_label_hash->{'Scan_type'};
 
     # grep the different BIDS information to use to name the NIfTI file
-    my $bids_category = $bids_label_hash->{BIDSCategoryName};
+    my $bids_category    = $bids_label_hash->{BIDSCategoryName};
     my $bids_subcategory = $bids_label_hash->{BIDSScanTypeSubCategory};
-    my $bids_scan_type = $bids_label_hash->{BIDSScanType};
-    my $bids_echo_nb = $bids_label_hash->{BIDSEchoNumber};
+    my $bids_scan_type   = $bids_label_hash->{BIDSScanType};
+    my $bids_echo_nb     = $bids_label_hash->{BIDSEchoNumber};
 
     # determine the NIfTI name based on the MINC name
     my $nifti_name = basename($minc);
@@ -831,7 +888,7 @@ sub determine_bids_nifti_file_name {
         } else {
             $replace = "run-";
         }
-    } elsif ($bids_scan_type eq 'T2star' && $bids_echo_nb) {
+    } elsif ($bids_scan_type eq 'T2star') {
         if ($bids_label_hash->{BIDSScanTypeSubCategory}) {
             $replace = $bids_subcategory . "_run-";
         } else {
@@ -853,6 +910,8 @@ sub determine_bids_nifti_file_name {
         if ($echo_nb) {
             $bids_scan_type .= $echo_nb;
         }
+    } elsif ($run_nb) {
+        $nifti_name =~ s/run-\d\d\d/run-$run_nb/g;
     }
 
     # find position of the last dot of the NIfTI file, where the extension starts
