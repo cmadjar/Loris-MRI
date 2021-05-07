@@ -7,6 +7,10 @@ import os
 import sys
 import getopt
 import shutil
+import pathlib
+import tempfile
+import tarfile
+import gzip
 import lib.exitcode
 import lib.utilities as utilities
 from pyblake2 import blake2b
@@ -169,10 +173,10 @@ def parse_file_and_insert(config_file, file_to_insert, verbose):
         sys.exit()
 
     # copy the file to the appropriate directory
-    new_electrode_filename  = f"sub-{pscid}_ses-V01_electrodes.tsv"
+    new_electrode_filename  = f"sub-{pscid}_ses-V01_task-protmap_electrodes.tsv"
     new_electrode_rel_path  = os.path.join(os.path.dirname(physio_file_path), new_electrode_filename)
     new_electrode_full_path = os.path.join(data_dir, new_electrode_rel_path)
-    shutil.copyfile(file_to_insert, new_electrode_full_path)
+    utilities.copy_file(file_to_insert, new_electrode_full_path, verbose)
     if not os.path.exists(os.path.join(data_dir, new_electrode_rel_path)):
         print('\n\tERROR: file was not properly copied into the BIDS directory')
         sys.exit()
@@ -185,6 +189,38 @@ def parse_file_and_insert(config_file, file_to_insert, verbose):
         electrode_data, new_electrode_rel_path, physio_file_id, blake2
     )
 
+    # modify the archive to add the electrode file
+    archive_info = physiological.grep_archive_info_from_file_id(physio_file_id)
+    archive_path = os.path.join(data_dir, archive_info['FilePath'])
+    modify_archive(archive_path, new_electrode_full_path, verbose)
+    blake2 = blake2b(new_electrode_full_path.encode('utf-8')).hexdigest()
+
+    print("update blaked 2b from " + archive_info['Blake2bHash'] + ' to ' + blake2)
+
+    query = "UPDATE physiological_archive SET Blake2bHash = %s WHERE PhysiologicalArchiveID = %s"
+    db.update(query=query, args=(blake2, archive_info['PhysiologicalArchiveID']))
+
+
+def modify_archive(archive_path, file_to_add, verbose):
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir_path = pathlib.Path(tmp_dir)
+
+        # extract archive to tmp dir
+        with tarfile.open(archive_path) as r:
+            r.extractall(tmp_dir)
+
+        # add file in tmp dir
+        utilities.copy_file(
+            file_to_add,
+            os.path.join(tmp_dir_path, os.path.basename(file_to_add)),
+            verbose
+        )
+
+        # replace archive, from all files in tempdir
+        with tarfile.open(archive_path, "w:gz") as w:
+            for f in tmp_dir_path.iterdir():
+                w.add(f, arcname=f.name)
 
 
 if __name__ == "__main__":
