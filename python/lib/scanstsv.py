@@ -43,7 +43,7 @@ class ScansTSV:
 
         # read the TSV file and store the header names and data
         self.tsv_entries = utilities.read_tsv_file(self.scans_tsv_file)
-        self.tsv_headers = list(self.tsv_entries[0].keys())
+        self.tsv_headers = self.tsv_entries[0]
 
         # get the acquisition information for the acquisition file
         self.acquisition_data = self.find_acquisition_data()
