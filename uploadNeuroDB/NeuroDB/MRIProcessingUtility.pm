@@ -738,7 +738,7 @@ sub computeMd5Hash {
 
 Determines the acquisition protocol and acquisition protocol ID for the MINC
 file. If C<$acquisitionProtocol> is not set, it will look for the acquisition
-protocol in the C<mri_protocol> table based on the MINC header information
+protocol in the C<scan_type_parameter> table based on the MINC header information
 using C<&NeuroDB::MRI::identify_scan_db>. If C<$bypass_extra_file_checks> is
 true, then it will bypass the additional protocol checks from the
 C<mri_protocol_checks> table using C<&extra_file_checks>.
