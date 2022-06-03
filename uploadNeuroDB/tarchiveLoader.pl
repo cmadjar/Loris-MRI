@@ -11,7 +11,7 @@ tarchiveLoader.pl -- this script performs the following:
 
 - conversion of DICOM datasets into MINC files
 
-- automated protocol checks against the entries in the C<mri_protocol> and
+- automated protocol checks against the entries in the C<scan_type_parameter> and
 optionally, C<mri_protocol_checks> tables.
 
 
