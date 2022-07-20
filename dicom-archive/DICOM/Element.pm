@@ -271,11 +271,11 @@ sub readSequence {
     my ($IN, $len) = @_;
     my ($buff, $val);
 
-#    print "0xFFFE has length: ".length(0xFFFE)." and looks like ".sprintf("%x", 0xFFFE)."\n";
-#
-#    printf "READING SQ AT ".tell($IN)." LENGTH: %x\n", $len;
-#    if($len == 0xFFFFFFFF) { print "length is FFFF, FFFF\n"; }
-#    else {print "length is NOT F's\n"; }
+   print "0xFFFE has length: ".length(0xFFFE)." and looks like ".sprintf("%x", 0xFFFE)."\n";
+
+   printf "READING SQ AT ".tell($IN)." LENGTH: %x\n", $len;
+   if($len == 0xFFFFFFFF) { print "length is FFFF, FFFF\n"; }
+   else {print "length is NOT F's\n"; }
 
     # three different cases:
     # implicit VR, explicit length
@@ -288,7 +288,6 @@ sub readSequence {
         print("len = $len \n buff=$buff \n IN=$IN\n");
 	    read($IN, $buff, $len);
     } else {
-        print("IN LOOP");
         READLOOP:
 	    while(read($IN, $buff, 2)) {
 	        $buff = unpack('v', $buff);
