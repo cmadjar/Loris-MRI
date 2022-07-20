@@ -285,6 +285,7 @@ sub readSequence {
     # defined length
     if($len > 0 and $len != 0xFFFFFFFF) {
 #	printf "skipping forward 0x%x bytes\n", $len;
+        print("HERE");
 	    read($IN, $buff, $len);
     } else {
         print("IN LOOP");
