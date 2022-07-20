@@ -746,8 +746,7 @@ sub read_dicom_data {
     
     #my $dicomTest          = trimwhitespace($dicom->value('0020','0032'));  # a basic test to exclude stupid pseudo dicom files
     my $image_type = trimwhitespace($dicom->value('0008','0008'));  # a basic test to exclude reports
-    print($image_type);
-    if($image_type eq '') {$fileIsDicom = 0;}                              # element 0 21 is whether file is Dicom or not
+    if($image_type eq 'ORIGINAL\PRIMARY\OTHER\CSA REPORT') {$fileIsDicom = 0;}                              # element 0 21 is whether file is Dicom or not
 
     my ($series,          $echo,           $image,              $tr,    
         $te,              $ti,             $date,               $pname, 
