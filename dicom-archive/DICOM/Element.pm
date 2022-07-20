@@ -287,6 +287,7 @@ sub readSequence {
 #	printf "skipping forward 0x%x bytes\n", $len;
 	    read($IN, $buff, $len);
     } else {
+        print("IN LOOP");
         READLOOP:
 	    while(read($IN, $buff, 2)) {
 	        $buff = unpack('v', $buff);
