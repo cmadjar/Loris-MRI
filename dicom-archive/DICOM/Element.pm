@@ -272,6 +272,7 @@ sub readSequence {
     my ($buff, $val);
 
    print "0xFFFE has length: ".length(0xFFFE)." and looks like ".sprintf("%x", 0xFFFE)."\n";
+   print "0xFFFFFFFF has length: ".length(0xFFFFFFFF)." and looks like ".sprintf("%x", 0xFFFFFFFF)."\n";
 
    printf "READING SQ AT ".tell($IN)." LENGTH: %x\n", $len;
    if($len == 0xFFFFFFFF) { print "length is FFFF, FFFF\n"; }
