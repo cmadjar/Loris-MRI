@@ -61,27 +61,27 @@ sub new {
     $self->{metaname}   = basename($self->{dcmdir});   # the name for the .meta file
     
     $self->{archivedir} = undef;
-# get an array describing ALL files
-    $self->{dcminfo}   = [$self->content_list($self->{dcmdir})]; 
-### make sure that there is at least one dicom file in target directory
-    $self->{dcmcount}          = $self->dcm_count();  
-# studyuid if there is only one study in source
-    $self->{studyuid}   = $self->confirm_single_study($self->{dcminfo});
- 
-# getting an idea on what there is and breaking it down to different acquisitions
-    $self->{acqu_AoH}   = [ $self->acquisition_AoH($self->{dcminfo}) ];  # Array of Hashes decsribing acquisition parameters for each file
-    $self->{acqu_Sum}   = { $self->collapse($self->{acqu_AoH}) };        # hash table acquisition summary collapsed by unique acquisition definitions
-    $self->{acqu_List}  = [ $self->acquisitions($self->{acqu_Sum}) ];    # acquisition Listing sorted by acquisition number to be used for summary
-
-# hash table containing all kind of patient and institution info
-    $self->{header}     = {}; 
-    $self->{header}     = $self->fill_header($self->{dcminfo});
-    
-# some more counts 
-    $self->{totalcount}        = $self->file_count();
-    $self->{nondcmcount}       = $self->{totalcount} - $self->{dcmcount};
-    $self->{acquisition_count} = $self->acquistion_count();  
-    $self->{user}              = $ENV{'USER'};
+# # get an array describing ALL files
+#     $self->{dcminfo}   = [$self->content_list($self->{dcmdir})];
+# ### make sure that there is at least one dicom file in target directory
+#     $self->{dcmcount}          = $self->dcm_count();
+# # studyuid if there is only one study in source
+#     $self->{studyuid}   = $self->confirm_single_study($self->{dcminfo});
+#
+# # getting an idea on what there is and breaking it down to different acquisitions
+#     $self->{acqu_AoH}   = [ $self->acquisition_AoH($self->{dcminfo}) ];  # Array of Hashes decsribing acquisition parameters for each file
+#     $self->{acqu_Sum}   = { $self->collapse($self->{acqu_AoH}) };        # hash table acquisition summary collapsed by unique acquisition definitions
+#     $self->{acqu_List}  = [ $self->acquisitions($self->{acqu_Sum}) ];    # acquisition Listing sorted by acquisition number to be used for summary
+#
+# # hash table containing all kind of patient and institution info
+#     $self->{header}     = {};
+#     $self->{header}     = $self->fill_header($self->{dcminfo});
+#
+# # some more counts
+#     $self->{totalcount}        = $self->file_count();
+#     $self->{nondcmcount}       = $self->{totalcount} - $self->{dcmcount};
+#     $self->{acquisition_count} = $self->acquistion_count();
+#     $self->{user}              = $ENV{'USER'};
 
     return $self;
 }
