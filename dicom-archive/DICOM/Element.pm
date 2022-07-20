@@ -285,30 +285,30 @@ sub readSequence {
     # defined length
     if($len > 0 and $len != 0xFFFFFFFF) {
 #	printf "skipping forward 0x%x bytes\n", $len;
-	read($IN, $buff, $len);
+	    read($IN, $buff, $len);
     } else {
-      READLOOP:
-	while(read($IN, $buff, 2)) {
-	    $buff = unpack('v', $buff);
-	    if($buff == 0xFFFE) {
-#		print "found start of delimiter\n";
-		read($IN, $buff, 2);
-		$buff = unpack('v', $buff);
-		if($buff == 0xE0DD) {
-#		    print "found end of delimiter\n";
-		    read($IN, $buff, 4);
-		    $buff = unpack('v', $buff);
-		    if($buff == 0x00000000) {
-#			print "found length 0\n";
-			last READLOOP;
-		    } else {
-			seek($IN, -4, 1);
-		    }
-		} else {
-		    seek($IN, -2, 1);
-		}
+        READLOOP:
+	    while(read($IN, $buff, 2)) {
+	        $buff = unpack('v', $buff);
+	        if($buff == 0xFFFE) {
+#    		    print "found start of delimiter\n";
+	    	    read($IN, $buff, 2);
+		        $buff = unpack('v', $buff);
+	    	    if($buff == 0xE0DD) {
+#		            print "found end of delimiter\n";
+		            read($IN, $buff, 4);
+	         	    $buff = unpack('v', $buff);
+		            if($buff == 0x00000000) {
+#			            print "found length 0\n";
+    			        last READLOOP;
+		            } else {
+	    		        seek($IN, -4, 1);
+		            }
+		        } else {
+		            seek($IN, -2, 1);
+		        }
+	        }
 	    }
-	}
     }
 
     return 'skipped';

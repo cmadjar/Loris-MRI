@@ -743,10 +743,10 @@ sub read_dicom_data {
     # read the file, assuming it is dicom
     my $dicom = DICOM->new();
     my $fileIsDicom = ! ($dicom->fill($file));
-    
-    #my $dicomTest          = trimwhitespace($dicom->value('0020','0032'));  # a basic test to exclude stupid pseudo dicom files
+
+    # use image type to determine if the file is a report or an actual image
     my $image_type = trimwhitespace($dicom->value('0008','0008'));  # a basic test to exclude reports
-    if($image_type eq 'ORIGINAL\PRIMARY\OTHER\CSA REPORT') {$fileIsDicom = 0;}                              # element 0 21 is whether file is Dicom or not
+    if($image_type eq 'ORIGINAL\PRIMARY\OTHER\CSA REPORT') {$fileIsDicom = undef;}                              # element 0 21 is whether file is Dicom or not
 
     my ($series,          $echo,           $image,              $tr,    
         $te,              $ti,             $date,               $pname, 
@@ -757,7 +757,7 @@ sub read_dicom_data {
        );
 
     # see if the file was really dicom
-    if($fileIsDicom) {
+    if(defined $fileIsDicom) {
 	$studyUID           = trimwhitespace($dicom->value('0020','000D'));  # element 0 0 is study uid
 	$series             = trimwhitespace($dicom->value('0020','0011'));  # element 0 1 is series
 	$echo               = trimwhitespace($dicom->value('0018','0086'));  # element 0 2 is echo number
