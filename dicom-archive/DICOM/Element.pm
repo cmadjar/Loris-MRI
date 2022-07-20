@@ -88,6 +88,10 @@ RETURNS: element hash
 sub fill {
   my $this = shift;
   my ($IN, $dictref) = @_;
+
+    print("Content of $IN\n\n");
+    print("Content of dict ref $dictref\n\n");
+
   my %dict = %$dictref;
   #my ($group, $element, $offset, $code, $length, $name, $value, $header);
   my $vrstr;
