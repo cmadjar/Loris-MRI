@@ -232,7 +232,7 @@ class DicomArchiveLoaderPipeline(BasePipeline):
             return False
 
         series_desc = json_data_dict["SeriesDescription"]
-        
+
         if type(self.excluded_series_desc_regex_list) is str:
             pattern = re.compile(self.excluded_series_desc_regex_list)
             return True if pattern.match(series_desc) else False
