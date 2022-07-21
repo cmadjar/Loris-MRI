@@ -610,13 +610,14 @@ class Imaging:
 
         matching_protocols_list = []
         for protocol in protocols_list:
+            print('\n')
+            print(protocol)
             if protocol['series_description_regex']:
                 if re.search(rf"{protocol['series_description_regex']}", scan_param['SeriesDescription']):
                     matching_protocols_list.append(protocol['Scan_type'])
             elif self.is_scan_protocol_matching_db_protocol(protocol, scan_param):
+                print('in append')
                 matching_protocols_list.append(protocol['Scan_type'])
-
-        print(matching_protocols_list)
 
         return matching_protocols_list
 
