@@ -656,9 +656,8 @@ class Imaging:
         print(db_prot['slice_thickness_max'])
         print(db_prot['image_type'])
         print(type(db_prot['image_type']))
-        print("\n\n")
 
-        if db_prot['image_type'] == scan_img_type:
+        if scan_img_type == db_prot['image_type']:
             print("image types match")
         else:
             print("image types do not match")
@@ -676,6 +675,8 @@ class Imaging:
                 and self.in_range(scan_slice_thick,     db_prot['slice_thickness_min'], db_prot['slice_thickness_max'])\
                 and (not db_prot['image_type'] or scan_img_type == db_prot['image_type']):
             return True
+
+        print("\n\n")
 
     def run_extra_file_checks(self, project_id, subproject_id, visit_label, scan_type_id, scan_param_dict):
         """
