@@ -609,7 +609,6 @@ class Imaging:
         """
 
         matching_protocols_list = []
-        print(protocols_list)
         for protocol in protocols_list:
             if protocol['series_description_regex']:
                 if re.search(rf"{protocol['series_description_regex']}", scan_param['SeriesDescription']):
