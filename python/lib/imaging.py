@@ -643,6 +643,7 @@ class Imaging:
         print(scan_ti)
         print(scan_slice_thick)
         print(scan_img_type)
+        print(type(scan_img_type))
 
         print('protocol table content')
         print(db_prot['TR_min'])
@@ -653,6 +654,9 @@ class Imaging:
         print(db_prot['TI_max'])
         print(db_prot['slice_thickness_min'])
         print(db_prot['slice_thickness_max'])
+        print(db_prot['image_type'])
+        print(type(db_prot['image_type']))
+        print("\n\n")
 
         if (self.in_range(scan_param['time'], db_prot['time_min'], db_prot['time_max'])) \
                 and self.in_range(scan_tr,              db_prot['TR_min'],     db_prot['TR_max']) \
