@@ -637,6 +637,23 @@ class Imaging:
         scan_slice_thick = scan_param['SliceThickness']
         scan_img_type = str(scan_param['ImageType'])
 
+        print('Scan_param')
+        print(scan_tr)
+        print(scan_te)
+        print(scan_ti)
+        print(scan_slice_thick)
+        print(scan_img_type)
+
+        print('protocol table content')
+        print(db_prot['TR_min'])
+        print(db_prot['TR_max'])
+        print(db_prot['TE_min'])
+        print(db_prot['TE_max'])
+        print(db_prot['TI_min'])
+        print(db_prot['TI_max'])
+        print(db_prot['slice_thickness_min'])
+        print(db_prot['slice_thickness_max'])
+
         if (self.in_range(scan_param['time'], db_prot['time_min'], db_prot['time_max'])) \
                 and self.in_range(scan_tr,              db_prot['TR_min'],     db_prot['TR_max']) \
                 and self.in_range(scan_te,              db_prot['TE_min'],     db_prot['TE_max']) \
