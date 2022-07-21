@@ -658,6 +658,11 @@ class Imaging:
         print(type(db_prot['image_type']))
         print("\n\n")
 
+        if db_prot['image_type'] == scan_img_type:
+            print("image types match")
+        else:
+            print("image types do not match")
+
         if (self.in_range(scan_param['time'], db_prot['time_min'], db_prot['time_max'])) \
                 and self.in_range(scan_tr,              db_prot['TR_min'],     db_prot['TR_max']) \
                 and self.in_range(scan_te,              db_prot['TE_min'],     db_prot['TE_max']) \
@@ -922,24 +927,30 @@ class Imaging:
 
         # return True when parameter min and max values are not defined (a.k.a. no restrictions in mri_protocol)
         if not field_min and not field_max:
+            print("first check is True")
             return True
 
         # return False if value is not defined since this field is listed as a restriction in mri_protocol
         # (a.k.a. passed the first if)
         if not value:
+            print("second check is False")
             return False
 
         # return True if min & max are defined and value is within the range
         if field_min and field_max and float(field_min) <= float(value) <= float(field_max):
+            print("third check is True")
             return True
 
         # return True if only min is defined and value is <= min
         if field_min and not field_max and float(field_min) <= float(value):
+            print("fourth check is True")
             return True
 
         # return True if only max is defined and value is >= max
         if field_max and not field_min and float(value) <= float(field_max):
+            print("fifth check is True")
             return True
 
         # if we got this far, then value is out of range
+        print("default return...")
         return False
