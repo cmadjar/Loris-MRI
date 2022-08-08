@@ -637,6 +637,10 @@ class Imaging:
         scan_slice_thick = scan_param['SliceThickness']
         scan_img_type = str(scan_param['ImageType'])
 
+        # HBCD SPECIFIC OVERRIDE BEGIN
+        scan_ped = scan_param['PhaseEncodingDirection'] if 'PhaseEncodingDirection' in scan_param else None
+        scan_so = scan_param['ScanOptions'] if 'ScanOptions' in scan_param else None
+
         if (self.in_range(scan_param['time'], db_prot['time_min'], db_prot['time_max'])) \
                 and self.in_range(scan_tr,              db_prot['TR_min'],     db_prot['TR_max']) \
                 and self.in_range(scan_te,              db_prot['TE_min'],     db_prot['TE_max']) \
@@ -648,8 +652,11 @@ class Imaging:
                 and self.in_range(scan_param['yspace'], db_prot['yspace_min'], db_prot['yspace_max']) \
                 and self.in_range(scan_param['zspace'], db_prot['zspace_min'], db_prot['zspace_max']) \
                 and self.in_range(scan_slice_thick,     db_prot['slice_thickness_min'], db_prot['slice_thickness_max'])\
-                and (not db_prot['image_type'] or scan_img_type == db_prot['image_type']):
+                and (not db_prot['image_type'] or scan_img_type == db_prot['image_type'])\
+                and (not db_prot['PhaseEncodingDirection'] or scan_ped == db_prot['PhaseEncodingDirection'])\
+                and (not db_prot['ScanOptions'] or scan_so == db_prot['ScanOptions']):
             return True
+        # HBCD SPECIFIC OVERRIDE ENDS
 
     def run_extra_file_checks(self, project_id, subproject_id, visit_label, scan_type_id, scan_param_dict):
         """
