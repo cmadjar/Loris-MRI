@@ -434,6 +434,10 @@ class BasePipeline:
         If the DICOM archive was not validated, the pipeline will exit and log the proper error information.
         """
         mu_dict = self.imaging_upload_obj.imaging_upload_dict
+        print("\n\n\n****************************************")
+        print(mu_dict["IsTarchiveValidated"])
+        print("\n****************************************\n\n\n\n\n")
+
         if ("IsTarchiveValidated" not in mu_dict.keys() or not mu_dict["IsTarchiveValidated"]) and not self.force:
             err_msg = f"The DICOM archive validation has failed for UploadID {self.upload_id}. Either run the" \
                       f" validation again and fix the problem or use --force to force the insertion of the NIfTI file."
