@@ -182,7 +182,7 @@ class Imaging:
 
         pf_entry = self.param_file_db_obj.get_parameter_file_for_file_id_param_type_id(file_id, param_type_id)
         if pf_entry:
-            self.param_file_db_obj.update_parameter_file(value, pf_entry[0]['ParameterFileID'])
+            self.param_file_db_obj.update_parameter_file(value, pf_entry['ParameterFileID'])
         else:
             self.param_file_db_obj.insert_parameter_file(param_file_insert_info_dict)
 
@@ -255,7 +255,7 @@ class Imaging:
             "ystep_range": scan_param["ystep"] if "ystep" in scan_param.keys() else None,
             "zstep_range": scan_param["zstep"] if "zstep" in scan_param.keys() else None,
             "time_range": scan_param["time"] if "time" in scan_param.keys() else None,
-            "SeriesUID": scan_param["SeriesUID"] if "SeriesUID" in scan_param.keys() else None,
+            "SeriesUID": scan_param["SeriesInstanceUID"] if "SeriesInstanceUID" in scan_param.keys() else None,
             "image_type": str(scan_param["ImageType"]) if "ImageType" in scan_param.keys() else None,
             "PhaseEncodingDirection": phase_encoding_dir,
             "EchoNumber": repr(scan_param["EchoNumber"]) if "EchoNumber" in scan_param else None,
@@ -676,7 +676,7 @@ class Imaging:
         scan_slice_thick = scan_param['SliceThickness']
         scan_img_type = str(scan_param['ImageType'])
         scan_ped = scan_param['PhaseEncodingDirection'] if 'PhaseEncodingDirection' in scan_param else None
-        scan_so = scan_param['EchoNumber'] if 'EchoNumber' in scan_param else None
+        scan_en = scan_param['EchoNumber'] if 'EchoNumber' in scan_param else None
 
         if (self.in_range(scan_param['time'], db_prot['time_min'], db_prot['time_max'])) \
                 and self.in_range(scan_tr,              db_prot['TR_min'],     db_prot['TR_max']) \
@@ -690,7 +690,7 @@ class Imaging:
                 and self.in_range(scan_param['zspace'], db_prot['zspace_min'], db_prot['zspace_max']) \
                 and self.in_range(scan_slice_thick,     db_prot['slice_thickness_min'], db_prot['slice_thickness_max'])\
                 and (not db_prot['PhaseEncodingDirection'] or scan_ped == db_prot['PhaseEncodingDirection'])\
-                and (not db_prot['EchoNumber'] or scan_so == db_prot['EchoNumber'])\
+                and (not db_prot['EchoNumber'] or scan_en == int(db_prot['EchoNumber']))\
                 and (not db_prot['image_type'] or scan_img_type == db_prot['image_type']):
             return True
 
