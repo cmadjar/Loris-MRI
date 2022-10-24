@@ -180,7 +180,8 @@ class BasePipeline:
         if cand_id and visit_label:
             self.session_obj.create_session_dict(cand_id, visit_label)
             session_dict = self.session_obj.session_info_dict
-            return {"CenterName": session_dict["MRI_alias"], "CenterID": session_dict["CenterID"]}
+            if session_dict:
+                return {"CenterName": session_dict["MRI_alias"], "CenterID": session_dict["CenterID"]}
 
         # if could not find center information based on cand_id and visit_label, use the
         # patient name to match it to the site alias or MRI alias
