@@ -204,14 +204,13 @@ class BasePipeline:
         """
         Determine the scanner information found in the database for the uploaded DICOM archive.
         """
-        session_info_dict = self.session_obj.session_info_dict
         scanner_id = self.imaging_obj.get_scanner_id(
             self.dicom_archive_obj.tarchive_info_dict['ScannerManufacturer'],
             self.dicom_archive_obj.tarchive_info_dict['ScannerSoftwareVersion'],
             self.dicom_archive_obj.tarchive_info_dict['ScannerSerialNumber'],
             self.dicom_archive_obj.tarchive_info_dict['ScannerModel'],
             self.site_dict['CenterID'],
-            session_info_dict['ProjectID'] if 'ProjectID' in session_info_dict else None
+            self.session_obj.session_info_dict['ProjectID'] if self.session_obj.session_info_dict else None
         )
         message = f"Found Scanner ID: {str(scanner_id)}"
         self.log_info(message, is_error="N", is_verbose="Y")
