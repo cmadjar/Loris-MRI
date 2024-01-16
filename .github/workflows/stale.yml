@@ -23,8 +23,7 @@ jobs:
         repo-token: ${{ secrets.GITHUB_TOKEN }}
         stale-issue-message: 'This issue is stale because it has been open 1 year with no activity.  Remove stale label or comment or this will be closed in 3 months.'
         stale-pr-message: 'This PR is stale because it has been open 45 days with no activity. Remove stale label or comment or this will be closed in 20 days.'
-        days-before-issue-stale: 1 # ~1 year
-        days-before-issue-close: 1 # ~3 months   
-        days-before-pr-stale: 1 # ~3 months
-        days-before-pr-close: 1 # ~1.5 month
-        close-issue-reason: 'not-planned'
+        days-before-issue-stale: 365 # ~1 year
+        days-before-issue-close: 90 # ~3 months   
+        days-before-pr-stale: 90 # ~3 months
+        days-before-pr-close: 45 # ~1.5 month
