@@ -827,7 +827,7 @@ class Imaging:
         """
 
         hdr_checks_list = [c for c in checks_list if c['Header'] == header and c['Severity'] == severity]
-
+        print(hdr_checks_list)
         valid_ranges = []
         valid_regexs = []
         for check in hdr_checks_list:
@@ -838,6 +838,7 @@ class Imaging:
             if check['ValidRegex']:
                 valid_regexs.append(check['ValidRegex'])
 
+        print(valid_regexs)
         bids_mapping_dict = self.param_type_db_obj.get_bids_to_minc_mapping_dict()
         bids_header = header
         if bids_header not in scan_param_dict.keys():
