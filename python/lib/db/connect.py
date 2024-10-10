@@ -14,4 +14,7 @@ def connect_to_db(credentials: dict[str, Any]):
     database = credentials['database']
     port     = int(port) if port else default_port
     engine = create_engine(f'mysql+mysqldb://{username}:{password}@{host}:{port}/{database}', pool_pre_ping=True)
+    session = Session(engine)
+    session.execute("SELECT 1")
+    exit()
     return Session(engine)
