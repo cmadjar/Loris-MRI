@@ -87,6 +87,14 @@ def get_dicom_archive_dir_path_config(env: Env) -> str:
     return dicom_archive_dir_path
 
 
+def get_perl_config_file_name_config(env: Env) -> str:
+    """
+    Get the Perl config file name from the in-database configuration.
+    """
+
+    return _get_config_value(env, 'MriConfigFile')
+
+
 def _get_config_value(env: Env, setting_name: str) -> str:
     """
     Get a configuration value from the database using a configuration setting name, or exit the
