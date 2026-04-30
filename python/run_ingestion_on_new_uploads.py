@@ -126,7 +126,8 @@ def main() -> None:
         script_command = [
             "imaging_upload_file.pl",
             "-profile",   perl_config_file,
-            "-upload_id", str(upload.id)
+            "-upload_id", str(upload.id),
+            upload.upload_location
         ]
         if args.verbose:
             script_command.append("-verbose")
