@@ -20,10 +20,12 @@ class Args:
     verbose:     bool
 
     def __init__(self, options_dict: dict[str, Any]):
-        self.profile     = options_dict['profile']['value']
-        self.backup_dir = os.path.normpath(options_dict['backup-dir']['value'])
-        self.backup      = options_dict['backup-upload']['value']
-        self.verbose     = options_dict['verbose']['value']
+        self.profile    = options_dict['profile']['value']
+        self.backup_dir = os.path.normpath(options_dict['backup-dir']['value']) \
+            if options_dict['backup-dir']['value'] \
+            else None
+        self.backup     = options_dict['backup-upload']['value']
+        self.verbose    = options_dict['verbose']['value']
 
 
 def main() -> None:
@@ -53,10 +55,10 @@ def main() -> None:
     # repeat the long names.
     options_dict = {
         "profile": {
-            "value": None, "required": True, "expect_arg": True, "short_opt": "p", "is_path": False
+            "value": None, "required": True,  "expect_arg": True, "short_opt": "p", "is_path": False
         },
         "backup-dir": {
-            "value": None, "required": True,  "expect_arg": True, "short_opt": "backup-dir", "is_path": True,
+            "value": None, "required": False, "expect_arg": True, "short_opt": "backup-dir", "is_path": True,
         },
         "backup-upload": {
             "value": False, "required": False, "expect_arg": False, "short_opt": "backup-upload", "is_path": False,
@@ -80,11 +82,11 @@ def main() -> None:
     if args.backup and not args.backup_dir:
         log_error_exit(
             env,
-            "You must specify a backup directory with '--backup-dir' if option '--backup' is set",
+            "You must specify a backup directory with '--backup-dir' if option '--backup-upload' is set",
             lib.exitcode.INVALID_ARG,
         )
 
-    if os.path.isdir(args.backup_dir) and not os.access(args.backup_dir, os.R_OK):
+    if args.backup_dir and os.path.isdir(args.backup_dir) and not os.access(args.backup_dir, os.R_OK):
         log_error_exit(
             env,
             "Argument '--backup-dir' must be a readable directory path.",
@@ -101,7 +103,7 @@ def main() -> None:
         exit()
 
     list_ids = '\n - '.join([str(u.id) + ' ' + u.patient_name for u in uploads])
-    log(env, f"Found following uploads to process:\n\t{list_ids}")
+    log(env, f"Found following uploads to process:\n - {list_ids}")
 
     # Get perl config file from the config module
 
@@ -111,13 +113,16 @@ def main() -> None:
 
     for upload in uploads:
 
+        # add separation line for readability of the log
+        log(env, '\n')
+
         # Back up the upload if option to back up is set
         if args.backup:
             log(env, f"Backing up {upload.upload_location} to {args.backup_dir}")
-            shutil.copyfile(upload.upload_location, args.backup_dir)
+            shutil.copy(upload.upload_location, args.backup_dir)
 
         # Call imaging_upload_file.pl on UploadID
-        log(env, f"Running imaging_upload_file.pl on UploadID {str(upload.id)}")
+        log(env, f"Running imaging_upload_file.pl on UploadID {str(upload.id)} {upload.patient_name}")
         script_command = [
             "imaging_upload_file.pl",
             "-profile",   perl_config_file,

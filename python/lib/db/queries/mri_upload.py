@@ -35,5 +35,5 @@ def get_unprocessed_mri_uploads(db: Database) -> Sequence[DbMriUpload] | None:
     return db.execute(select(DbMriUpload)
         .where(DbMriUpload.insertion_complete == 0)
         .where(DbMriUpload.inserting == 0)
-        .where(DbMriUpload.dicom_archive_id is None)
+        .where(DbMriUpload.dicom_archive_id.is_(None))
     ).scalars().all()
