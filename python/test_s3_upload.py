@@ -80,7 +80,7 @@ def main():
     )
 
     try:
-        s3_obj.s3_client.upload_fileobj(file_path, s3_bucket_name, s3_file_name, Config=transfer_config)
+        s3_obj.s3_client.upload_file(file_path, s3_bucket_name, s3_file_name, Config=transfer_config)
     except ClientError as err:
         raise Exception(f"{file_name} upload failure - {format(err)}")
 
