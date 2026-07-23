@@ -103,14 +103,13 @@ class AwsS3:
         """
 
         (s3_bucket_name, s3_bucket, s3_file_name) = self.get_s3_object_path_part(s3_object_name)
-        file_size = os.path.getsize(file_name)
 
         # Upload the file
         try:
             object_exists = self.check_object_content_exists(file_name, s3_file_name)
             if not object_exists:
                 print(f"Uploading {s3_file_name} to {self.aws_endpoint_url}/{s3_bucket_name}")
-                s3_bucket.upload_file(file_name, s3_file_name, ExtraArgs={'ContentLength': file_size})
+                s3_bucket.upload_file(file_name, s3_file_name)
             elif object_exists:
                 print(
                     f"Skipping! Key Content for {s3_file_name} matches key at {self.aws_endpoint_url}/{s3_bucket_name}")
