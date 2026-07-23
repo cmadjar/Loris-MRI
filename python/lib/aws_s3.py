@@ -80,6 +80,7 @@ class AwsS3:
         """
         try:
             etag = lib.utilities.compute_md5_hash(file_path)
+            print(etag)
             self.s3_client.head_object(Bucket=self.bucket_name, Key=key, IfMatch=etag)
         except ClientError:
             """            
@@ -102,13 +103,14 @@ class AwsS3:
         """
 
         (s3_bucket_name, s3_bucket, s3_file_name) = self.get_s3_object_path_part(s3_object_name)
+        file_size = os.path.getsize(file_name)
 
         # Upload the file
         try:
             object_exists = self.check_object_content_exists(file_name, s3_file_name)
             if not object_exists:
                 print(f"Uploading {s3_file_name} to {self.aws_endpoint_url}/{s3_bucket_name}")
-                s3_bucket.upload_file(file_name, s3_file_name)
+                s3_bucket.upload_file(file_name, s3_file_name, ExtraArgs={'ContentLength': file_size})
             elif object_exists:
                 print(
                     f"Skipping! Key Content for {s3_file_name} matches key at {self.aws_endpoint_url}/{s3_bucket_name}")
