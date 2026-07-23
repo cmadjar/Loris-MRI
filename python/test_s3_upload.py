@@ -64,20 +64,22 @@ def main():
     file_name = os.path.basename(file_path)
     s3_object_name = "/".join(["s3:/", s3_obj.bucket_name, file_name])
 
+    s3_obj.upload_file(file_path, s3_object_name)
+
     (s3_bucket_name, s3_bucket, s3_file_name) = s3_obj.get_s3_object_path_part(s3_object_name)
-    try:
-        with open(file_path, 'rb') as file_obj:
-            try:
-                file_obj.seek(0, 2)  # Seek to end to check size
-                file_size = file_obj.tell()
-                file_obj.seek(0)  # Reset to start
-                print(f"File is seekable. Size: {file_size} bytes")
-            except (io.UnsupportedOperation, OSError) as e:
-                print(f"File is not seekable: {e}")
-                raise
-            s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
-    except ClientError as err:
-        raise Exception(f"{file_name} upload failure - {format(err)}")
+    # try:
+    #     with open(file_path, 'rb') as file_obj:
+    #         try:
+    #             file_obj.seek(0, 2)  # Seek to end to check size
+    #             file_size = file_obj.tell()
+    #             file_obj.seek(0)  # Reset to start
+    #             print(f"File is seekable. Size: {file_size} bytes")
+    #         except (io.UnsupportedOperation, OSError) as e:
+    #             print(f"File is not seekable: {e}")
+    #             raise
+    #         s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
+    # except ClientError as err:
+    #     raise Exception(f"{file_name} upload failure - {format(err)}")
 
     # Configure multipart upload
     # transfer_config = TransferConfig(
