@@ -7,6 +7,7 @@ import re
 import sys
 import getopt
 
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 
 import lib.exitcode
@@ -65,9 +66,21 @@ def main():
 
     (s3_bucket_name, s3_bucket, s3_file_name) = s3_obj.get_s3_object_path_part(s3_object_name)
     file_size = os.path.getsize(file_path)
+    # try:
+    #     with open(file_path, 'rb') as file_obj:
+    #         s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
+    # except ClientError as err:
+    #     raise Exception(f"{file_name} upload failure - {format(err)}")
+    # Configure multipart upload
+    transfer_config = TransferConfig(
+        multipart_threshold=8 * 1024 * 1024,  # 8 MB
+        max_concurrency=10,
+        multipart_chunksize=8 * 1024 * 1024,  # 8 MB
+        use_threads=True
+    )
+
     try:
-        with open(file_path, 'rb') as file_obj:
-            s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
+        s3_obj.s3_client.upload_fileobj(file_path, s3_bucket_name, s3_file_name, Config=transfer_config)
     except ClientError as err:
         raise Exception(f"{file_name} upload failure - {format(err)}")
 
