@@ -66,7 +66,8 @@ def main():
     (s3_bucket_name, s3_bucket, s3_file_name) = s3_obj.get_s3_object_path_part(s3_object_name)
     file_size = os.path.getsize(file_path)
     try:
-        s3_bucket.upload_file(file_path, s3_file_name)
+        with open(file_path, 'rb') as file_obj:
+            s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
     except ClientError as err:
         raise Exception(f"{file_name} upload failure - {format(err)}")
 
