@@ -59,7 +59,7 @@ def main():
         sys.exit(lib.exitcode.S3_SETTINGS_FAILURE)
 
     # upload file to s3
-    file_path = loris_getopt_obj.options_dict['file_path']
+    file_path = loris_getopt_obj.options_dict['file_path']['value']
     file_name = os.path.basename(file_path)
     s3_object_name = "/".join(["s3:/", s3_obj.bucket_name, file_name])
 
