@@ -25,7 +25,6 @@ sys.path.append('/home/user/python')
 # sys.tracebacklimit = 0
 
 def main():
-    profile = ''
     file_path = ''
 
     usage = (
@@ -43,6 +42,9 @@ def main():
         },
         "file_path": {
             "value": None, "required": True, "expect_arg": True, "short_opt": "f", "is_path": False
+        },
+        "verbose": {
+            "value": False, "required": False, "expect_arg": False, "short_opt": "v", "is_path": False
         },
         "help": {
             "value": False, "required": False, "expect_arg": False, "short_opt": "h", "is_path": False
@@ -68,7 +70,7 @@ def main():
         s3_bucket.upload_file(file_path, s3_file_name, ExtraArgs={'ContentLength': file_size})
     except ClientError as err:
         raise Exception(f"{file_name} upload failure - {format(err)}")
-    
+
 
 if __name__ == "__main__":
     main()
