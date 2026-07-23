@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """Script to mass create the pic images of inserted NIfTI files."""
-
+import io
 import os
 import re
 import sys
@@ -65,25 +65,33 @@ def main():
     s3_object_name = "/".join(["s3:/", s3_obj.bucket_name, file_name])
 
     (s3_bucket_name, s3_bucket, s3_file_name) = s3_obj.get_s3_object_path_part(s3_object_name)
-    file_size = os.path.getsize(file_path)
-    # try:
-    #     with open(file_path, 'rb') as file_obj:
-    #         s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
-    # except ClientError as err:
-    #     raise Exception(f"{file_name} upload failure - {format(err)}")
-    # Configure multipart upload
-    transfer_config = TransferConfig(
-        multipart_threshold=8 * 1024 * 1024,  # 8 MB
-        max_concurrency=10,
-        multipart_chunksize=8 * 1024 * 1024,  # 8 MB
-        use_threads=True
-    )
-
     try:
-        s3_obj.s3_client.upload_file(file_path, s3_bucket_name, s3_file_name, Config=transfer_config)
+        with open(file_path, 'rb') as file_obj:
+            try:
+                file_obj.seek(0, 2)  # Seek to end to check size
+                file_size = file_obj.tell()
+                file_obj.seek(0)  # Reset to start
+                print(f"File is seekable. Size: {file_size} bytes")
+            except (io.UnsupportedOperation, OSError) as e:
+                print(f"File is not seekable: {e}")
+                raise
+            s3_obj.s3_client.upload_fileobj(file_obj, s3_bucket_name, s3_file_name)
     except ClientError as err:
         raise Exception(f"{file_name} upload failure - {format(err)}")
 
+    # Configure multipart upload
+    # transfer_config = TransferConfig(
+    #     multipart_threshold=16 * 1024 * 1024,  # 16 MB
+    #     max_concurrency=10,
+    #     multipart_chunksize=16 * 1024 * 1024,  # 16 MB
+    #     use_threads=True
+    # )
+    #
+    # try:
+    #     s3_obj.s3_client.upload_file(file_path, s3_bucket_name, s3_file_name, Config=transfer_config)
+    # except ClientError as err:
+    #     raise Exception(f"{file_name} upload failure - {format(err)}")
+    #
 
 if __name__ == "__main__":
     main()
